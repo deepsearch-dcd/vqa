@@ -33,9 +33,9 @@ function RNN.create(input_size, rnn_size, num_layer, dropout)
     local prev_h = inputs[L+1]
 
     -------------------- next hidden state --------------------
-    local i2h = nn.Linear(input_size, rnn_size)(input_L) -- input to hidden
-    local h2h = nn.Linear(rnn_size, rnn_size)(prev_h)    -- hidden to hidden
-    local next_h = nn.CAddTable()({i2h, h2h})            -- i2h + h2h
+    local i2h = nn.Linear(input_size_L, rnn_size)(input_L) -- input to hidden
+    local h2h = nn.Linear(rnn_size, rnn_size)(prev_h)      -- hidden to hidden
+    local next_h = nn.CAddTable()({i2h, h2h})              -- i2h + h2h
 
     --------------------- output structure --------------------
     table.insert(outputs, next_h)

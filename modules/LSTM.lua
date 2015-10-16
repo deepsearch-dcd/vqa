@@ -35,9 +35,9 @@ function LSTM.create(input_size, rnn_size, num_layer, dropout)
     local prev_h = inputs[L*2+1]
 
     --------------------- preactivations ----------------------
-    local i2h = nn.Linear(input_size, 4 * rnn_size)(input_L) -- input to hidden
-    local h2h = nn.Linear(rnn_size, 4 * rnn_size)(prev_h)    -- hidden to hidden
-    local preactivations = nn.CAddTable()({i2h, h2h})        -- i2h + h2h
+    local i2h = nn.Linear(input_size_L, 4 * rnn_size)(input_L) -- input to hidden
+    local h2h = nn.Linear(rnn_size, 4 * rnn_size)(prev_h)      -- hidden to hidden
+    local preactivations = nn.CAddTable()({i2h, h2h})          -- i2h + h2h
 
     ------------------ non-linear transforms ------------------
     -- gates
