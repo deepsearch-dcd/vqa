@@ -1,3 +1,3 @@
 #VQA
 
-An experiment framework for Vsiual Question Answering.
+An experiment framework for **V**isual **Q**uestion **A**nswering.
