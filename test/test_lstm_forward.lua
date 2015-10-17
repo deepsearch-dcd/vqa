@@ -1,6 +1,6 @@
 require 'nn'
 require 'nngraph'
-local LSTM = require 'modules/LSTM.lua'
+local LSTM = require 'module/LSTM.lua'
 
 local input_size = 30
 local rnn_size = 20
