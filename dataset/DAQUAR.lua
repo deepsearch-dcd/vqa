@@ -1,8 +1,8 @@
 require 'paths'
 local torch = require 'torch'
 
-require 'utils/str_utils'
-require 'utils/utils'
+require 'util/str'
+require 'util/utils'
 
 local DAQUAR = {}
 

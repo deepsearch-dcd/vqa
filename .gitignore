@@ -1,8 +1,9 @@
 cnn_model/
-datasets/data/
-features/
+dataset/data/
+feature/
 *.pyc
 *.swp
+*.t7
 
 # copy file from https://github.com/github/gitignore/blob/master/Lua.gitignore
 

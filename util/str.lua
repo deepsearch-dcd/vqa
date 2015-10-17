@@ -25,16 +25,3 @@ end
 function split_word(str)
         return split(str, '%S+')
 end
-
-function split_line(str, skip)
-        return split(str, '(.-)\n', skip or true)
-end
-
-function split_word(str)
-        return split(str, '%S+')
-end
-
-function join(strs, connector)
-        pt = string.sub(string.rep('%s'..connector, #strs), 1, -#connector-1)
-        return string.format(pt, unpack(strs))
-end

@@ -1,6 +1,6 @@
 require 'nn'
 require 'nngraph'
-require 'modules/sentenceCNN'
+require 'module/sentenceCNN'
 
 local question = nn.Identity()()
 local image = nn.Identity()()
