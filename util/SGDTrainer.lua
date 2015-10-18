@@ -1,4 +1,4 @@
-local train_utils = require 'util/train'
+local util = require 'util/util'
 
 local SGDTrainer = torch.class('SGDTrainer')
 
@@ -46,7 +46,7 @@ function SGDTrainer:train(trainset, testset)
 		print(string.format('\tloss = %.2f', loss/trainset:size()))
 		print(string.format('\tacc = %.2f%%', 100*correct/trainset:size()))
 		if testset then
-			local acc = train_utils.accuracy(net, testset)
+			local acc = util.accuracy(net, testset)
 			print(string.format('# Epoch %d Testing', epoch))
 			print(string.format('\tacc = %.2f%%', acc*100))
 		end

@@ -1,8 +1,7 @@
 require 'paths'
 local torch = require 'torch'
 
-require 'util/str'
-require 'util/utils'
+util = require 'util/util'
 
 local DAQUAR = {}
 
@@ -21,7 +20,7 @@ local function process_raw(file_path)
 	local file_content = f:read('*all')
 	f:close()
 
-	local lines = split_line(file_content)
+	local lines = util.split_line(file_content)
 	print('total lines: '..#lines)
 	assert(#lines % 2 == 0)
 	
@@ -31,7 +30,7 @@ local function process_raw(file_path)
 	for _, l in ipairs(lines) do
 		count = count + 1
 		if count % 2 == 1 then
-			table.insert(questions, split_word(l))
+			table.insert(questions, util.split_word(l))
 		else
 			table.insert(answers, l)
 		end
@@ -71,15 +70,15 @@ local function process_raw(file_path)
 end
 
 local function extract_word_vocab(questions)
-	return extract_vocab(flatten(questions), pad, unk)
+	return util.extract_vocab(util.flatten(questions), pad, unk)
 end
 
 local function extract_answer_vocab(answers)
-	return extract_vocab(answers, unk)
+	return util.extract_vocab(answers, unk)
 end
 
 local function extract_image_vocab(train_list, test_list)
-	return extract_vocab(flatten({train_list, test_list}))
+	return util.extract_vocab(util.flatten({train_list, test_list}))
 end
 	
 --[[
