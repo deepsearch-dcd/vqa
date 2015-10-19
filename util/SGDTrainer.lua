@@ -10,6 +10,7 @@ function SGDTrainer:__init(net, criterion)
 	self.displayIter = 500
 	self.snapshotIter = 5000
 	self.snapshotPrefix = 'iter_'
+	self.verbose = true
 end
 
 function SGDTrainer:train(trainset, testset)
@@ -32,7 +33,7 @@ function SGDTrainer:train(trainset, testset)
 
 			totalIter = totalIter + 1
 			-- display
-			if self.displayIter and totalIter % self.displayIter == 0 then
+			if self.verbose and self.displayIter and totalIter % self.displayIter == 0 then
 				print(string.format('# Epoch %d, Iteration %d, lr = %.6f', epoch, totalIter, self.lr))
 				print(string.format('\tloss = %.2f', loss/iter))
 				print(string.format('\tacc = %.2f%%', 100*correct/iter))
@@ -42,10 +43,14 @@ function SGDTrainer:train(trainset, testset)
 				torch.save(self.snapshotPrefix..totalIter..'.t7', net)
 			end
 		end
-		print(string.format('# Epoch %d Training', epoch))
-		print(string.format('\tloss = %.2f', loss/trainset:size()))
-		print(string.format('\tacc = %.2f%%', 100*correct/trainset:size()))
-		if testset then
+		if self.verbose then
+			print(string.format('# Epoch %d Training', epoch))
+			print(string.format('\tloss = %.2f', 
+						loss/trainset:size()))
+			print(string.format('\tacc = %.2f%%', 
+						100*correct/trainset:size()))
+		end
+		if self.verbose and testset then
 			local acc = util.accuracy(net, testset)
 			print(string.format('# Epoch %d Testing', epoch))
 			print(string.format('\tacc = %.2f%%', acc*100))

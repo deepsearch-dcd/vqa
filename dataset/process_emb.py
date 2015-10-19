@@ -13,18 +13,27 @@ def load_emb(src):
 		items = [ item for item in l.strip().split(' ') if item ]
 		assert(len(items) == size + 1)
 		words.append(items[0])
-		embs.append([float(item) for item in items[1:]])
+		embs.append(np.array([float(item) for item in items[1:]]))
+	if '*unk*' not in words:
+		mean = np.zeros(size)
+		for e in embs:
+			mean += e
+		mean = mean / len(embs)
+		words.append('*unk*')
+		embs.append(mean)
 	return words, np.array(embs)
 
 def convert(src, dst_dir):
 	words, embs = load_emb(src)
-	with open('%s_words.txt' % src, 'w') as f:
+	identity = src.rsplit('/', 1)[-1]
+	with open('%s/%s_words.txt' % (dst_dir, identity), 'w') as f:
 		f.write('\n'.join(words)+'\n')
-	np.save('%s/%s_embs.npy' % (dst_dir, src.rsplit('/', 1)[-1]), embs)
+	np.save('%s/%s_embs.npy' % (dst_dir, identity), embs)
 
 def process():
-	todo = ['CBOW_50', 'CBOW_100', 'CBOW_200', 'CBOW_300', 'CBOW_500',
-		'SG_50', 'SG_100', 'SG_200', 'SG_300', 'SG_500']
+	#todo = ['CBOW_50', 'CBOW_100', 'CBOW_200', 'CBOW_300', 'CBOW_500',
+	#	'SG_50', 'SG_100', 'SG_200', 'SG_300', 'SG_500']
+	todo = ['HLBL_50']
 	for f in todo:
 		convert('word_embedding/origin/'+f, 'word_embedding/')
 
