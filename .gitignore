@@ -1,4 +1,5 @@
 cnn_model/
+word_embedding/
 dataset/data/
 feature/
 *.pyc
