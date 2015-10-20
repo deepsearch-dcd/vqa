@@ -70,6 +70,16 @@ function util.split_word(str)
         return split(str, '%S+')
 end
 
+function util.start_with(str, head)
+	escapes = {'%(', '%)', '%.', '%+', '%-', '%*', '%?', '%[', '%^', '%$'}
+	head = string.gsub(head, '%%', '%%%%')
+	for _, esc in ipairs(escapes) do
+		head = string.gsub(head, esc, '%%'..esc)
+	end
+	if string.find(str, '^'..head) then return true
+	else return false end
+end
+
 -- Compute accuracy of the [net] across the [dataset]
 function util.accuracy(net, dataset)
 	correct = 0

@@ -37,6 +37,9 @@ Split the str using `\n` as the seperator. If the `skip` is true, the null line 
 ## split\_word(str)
 Split the str using the character from `%S` as the seperator.
 
+## start\_with(str, head)
+Check if the `str` starts with `head`. If so, return `true`.
+
 ## accuracy(net, dataset)
 Feed the dataset to the trained net and return the accurcy the net reaches.
 
