@@ -5,14 +5,14 @@
 
   -- single rnn has 3 inputs, 2 outputs
   singlernn = LSTM.single(input_size, rnn_size)
-  inputs = {torch.rand(input_size), torch.rand(rnn_size), torch.rand(rnn_size)}
+  inputs = {torch.rand(1, input_size), torch.rand(1, rnn_size), torch.rand(1, rnn_size)}
   outputs = singlernn:forward(inputs)
 
   -- multiple rnn has (2*num_layer+1) inputs, (2*num_layer) outputs
   rnn_sizes = {rnn_size1, rnn_size2}
   multiplernn = LSTM.multiple(input_size, rnn_sizes, num_layer[, dropout])
-  inputs = {torch.rand(input_size), torch.rand(rnn_size1), torch.rand(rnn_size1),
-            torch.rand(rnn_size2), torch.rand(rnn_size2)}
+  inputs = {torch.rand(1, input_size), torch.rand(1, rnn_size1), torch.rand(1, rnn_size1),
+            torch.rand(1, rnn_size2), torch.rand(1, rnn_size2)}
   outputs = multiplernn:forward(inputs)
 
   -- general rnn
@@ -42,17 +42,17 @@ function LSTM.single(input_size, rnn_size)
 
   ------------------ non-linear transforms ------------------
   -- gates
-  local gates_chunk = nn.Narrow(1, 1, 3 * rnn_size)(preactivations)
+  local gates_chunk = nn.Narrow(2, 1, 3 * rnn_size)(preactivations)
   local all_gates = nn.Sigmoid()(gates_chunk)
 
   -- input
-  local in_chunk = nn.Narrow(1, 3 * rnn_size + 1, rnn_size)(preactivations)
+  local in_chunk = nn.Narrow(2, 3 * rnn_size + 1, rnn_size)(preactivations)
   local in_transform = nn.Tanh()(in_chunk)
 
   ---------------------- gate narrows -----------------------
-  local in_gate = nn.Narrow(1, 1, rnn_size)(all_gates)
-  local forget_gate = nn.Narrow(1, rnn_size + 1, rnn_size)(all_gates)
-  local out_gate = nn.Narrow(1, 2 * rnn_size + 1, rnn_size)(all_gates)
+  local in_gate = nn.Narrow(2, 1, rnn_size)(all_gates)
+  local forget_gate = nn.Narrow(2, rnn_size + 1, rnn_size)(all_gates)
+  local out_gate = nn.Narrow(2, 2 * rnn_size + 1, rnn_size)(all_gates)
 
   --------------------- next cell state ---------------------
   local c_forget = nn.CMulTable()({forget_gate, prev_c})  -- previous cell state contribution

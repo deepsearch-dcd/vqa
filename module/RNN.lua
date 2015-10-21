@@ -5,13 +5,13 @@
 
   -- single rnn has 2 inputs, 1 outputs
   singlernn = RNN.single(input_size, rnn_size)
-  inputs = {torch.rand(input_size), torch.rand(rnn_size)}
+  inputs = {torch.rand(1, input_size), torch.rand(1, rnn_size)}
   outputs = singlernn:forward(inputs)
 
   -- multiple rnn has (num_layer+1) inputs, (num_layer) outputs
   rnn_sizes = {rnn_size1, rnn_size2}
   multiplernn = RNN.multiple(input_size, rnn_sizes, num_layer[, dropout])
-  inputs = {torch.rand(input_size), torch.rand(rnn_size1), torch.rand(rnn_size2)}
+  inputs = {torch.rand(1, input_size), torch.rand(1, rnn_size1), torch.rand(1, rnn_size2)}
   outputs = multiplernn:forward(inputs)
 
   -- general rnn
