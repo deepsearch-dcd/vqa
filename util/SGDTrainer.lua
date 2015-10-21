@@ -12,7 +12,7 @@ function SGDTrainer:__init(net, criterion)
 	self.displayIter = 500
 	self.snapshotIter = 5000
 	self.snapshotPrefix = 'iter_'
-	self.testIter = 2000
+	self.testIter = 3000
 	self.quiet = false    -- don't display any thing
 	self.visualPath = '.'
 end
@@ -42,15 +42,25 @@ function SGDTrainer:train(trainset, testset)
 	local totalIter = 0
 	local epoch_train_result, epoch_test_result = {}, {}
 	local iter_train_result, iter_test_result = {}, {}
+	local iter_loss, iter_correct = 0, 0
+	local epoch_loss, epoch_correct = 0, 0
+	local max_train_acc, max_test_acc = 0, 0
 	for epoch = 1, self.maxEpoch do
-		local loss = 0
-		local correct = 0
+		local shuffled_indices = torch.randperm(trainset:size())
+		if not self.shuffle then
+			for i = 1, trainset:size() do
+				shuffled_indices[i] = i
+			end
+		end
 		for iter = 1, trainset:size() do
-			x, t = unpack(trainset[iter])
-			loss = loss + criterion:forward(net:forward(x), t)
+			x, t = unpack(trainset[shuffled_indices[iter]])
+			loss = criterion:forward(net:forward(x), t)
+			iter_loss = iter_loss + loss
+			epoch_loss = epoch_loss + loss
 			local _, indices = torch.max(net.output, 1)
 			if t == indices[1] then
-				correct = correct + 1
+				iter_correct = iter_correct + 1
+				epoch_correct = epoch_correct + 1
 			end
 			net:zeroGradParameters()
 			net:backward(x, criterion:backward(net.output, t))
@@ -61,25 +71,34 @@ function SGDTrainer:train(trainset, testset)
 			-- display
 			if not self.quiet and self.displayIter
 				and totalIter % self.displayIter == 0 then
+				iter_loss = iter_loss / self.displayIter
+				iter_correct = iter_correct / self.displayIter
+				if iter_correct > max_train_acc then
+					max_train_acc = iter_correct
+				end
 				print(string.format('# Train Epoch %d,'
 					..' Iteration %d, lr = %.6f', 
 					epoch, totalIter, self.lr))
-				print(string.format('\tloss = %.2f', loss/iter))
-				print(string.format('\tacc = %.2f%%', 
-					100*correct/iter))
+				print(string.format('\tloss = %.2f', iter_loss))
+				print(string.format('\tacc = %.2f%%(%.2f%%)', 
+					100*iter_correct, 100*max_train_acc))
 				table.insert(iter_train_result, {totalIter, 
-						loss/iter, correct/iter})
+						iter_loss, iter_correct})
+				iter_loss, iter_correct = 0, 0
 			end
 			-- test
 			if not self.quiet and testset and self.testIter
 				and totalIter % self.testIter == 0 then
 				local test_acc, test_loss = util.eval(net, 
 							criterion, testset)
+				if test_acc > max_test_acc then
+					max_test_acc = test_acc
+				end
 				print(string.format('# Test Epoch %d,'
 					..' Iteration %d', epoch, totalIter))
 				print(string.format('\tloss = %.2f', test_loss))
-				print(string.format('\tacc = %.2f%%', 
-					test_acc*100))
+				print(string.format('\tacc = %.2f%%(%.2f%%)', 
+					100*test_acc, 100*max_test_acc))
 				table.insert(iter_test_result, {totalIter,
 					test_loss, test_acc})
 			end
@@ -100,15 +119,16 @@ function SGDTrainer:train(trainset, testset)
 			end
 			--
 		end
+		epoch_loss = epoch_loss / trainset:size()
+		epoch_correct = epoch_correct / trainset:size()
 		if not self.quiet then
 			print(string.format('# Epoch %d Training', epoch))
-			print(string.format('\tloss = %.2f', 
-						loss/trainset:size()))
+			print(string.format('\tloss = %.2f', epoch_loss))
 			print(string.format('\tacc = %.2f%%', 
-						100*correct/trainset:size()))
-			table.insert(epoch_train_result, {epoch, 
-					loss/trainset:size(), 
-					correct/trainset:size()})
+						100*epoch_correct))
+			table.insert(epoch_train_result, {epoch, epoch_loss, 
+					epoch_correct})
+			epoch_loss, epoch_correct = 0, 0
 			if testset then
 				local test_acc, test_loss = util.eval(net, 
 							criterion, testset)

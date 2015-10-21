@@ -13,6 +13,7 @@ function sentenceCNN(D, parameters)
 						parameters[i][3],
 						parameters[i][1],
 						parameters[i][2]))
+		net:add(nn.ReLU(true))
 		net:add(nn.TemporalMaxPooling( parameters[i][4],
 					       parameters[i][5]))
 	end

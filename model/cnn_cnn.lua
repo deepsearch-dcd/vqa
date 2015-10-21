@@ -11,7 +11,6 @@ local se = sentenceCNN(50, {{3,1,200,2,2},
 local word1, word2 = nn.SplitTable(1)(se):split(2)
 local iword = nn.Linear(1000,300)(image)
 local mword = nn.JoinTable(1)({word1, iword, word2})
-local prob = 
-nn.LogSoftMax()(nn.Linear(3*300, 969)(mword))
+local prob = nn.LogSoftMax()(nn.Linear(3*300, 969)(mword))
 
 return nn.gModule({image, question},{prob})

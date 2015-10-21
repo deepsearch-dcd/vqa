@@ -3,9 +3,9 @@ require 'cunn'
 require 'util/SGDTrainer'
 
 local util = require 'util/util'
-local model = require 'model/cnn_cnn.a'
+local model = require 'model/cnn_cnn.b'
 
-print 'test cnn_cnn.a...'
+print 'test cnn_cnn.b...'
 local dataset = {}
 dataset.questions = torch.rand(10, 30, 50)
 dataset.images = torch.rand(10, 1000)

@@ -21,6 +21,10 @@ def load_emb(src):
 		mean = mean / len(embs)
 		words.append('*unk*')
 		embs.append(mean)
+	if '*pad*' not in words:
+		words.append('*pad*')
+		embs.append(np.zeros(size))
+	assert(len(words) == len(embs))
 	return words, np.array(embs)
 
 def convert(src, dst_dir):
@@ -31,9 +35,8 @@ def convert(src, dst_dir):
 	np.save('%s/%s_embs.npy' % (dst_dir, identity), embs)
 
 def process():
-	#todo = ['CBOW_50', 'CBOW_100', 'CBOW_200', 'CBOW_300', 'CBOW_500',
-	#	'SG_50', 'SG_100', 'SG_200', 'SG_300', 'SG_500']
-	todo = ['HLBL_50']
+	todo = ['CBOW_50', 'CBOW_100', 'CBOW_200', 'CBOW_300', 'CBOW_500',
+		'SG_50', 'SG_100', 'SG_200', 'SG_300', 'SG_500', 'HLBL_50']
 	for f in todo:
 		convert('word_embedding/origin/'+f, 'word_embedding/')
 

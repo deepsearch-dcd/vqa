@@ -20,9 +20,9 @@ end
 
 local function process()
 	local src_dir = 'word_embedding'
---	local fnames = {'CBOW_50', 'CBOW_100', 'CBOW_200', 'CBOW_300',
---		'CBOW_500', 'SG_50', 'SG_100', 'SG_200', 'SG_300', 'SG_500'}
-	local fnames = {'HLBL_50'}
+	local fnames = {'CBOW_50', 'CBOW_100', 'CBOW_200', 'CBOW_300',
+		'CBOW_500', 'SG_50', 'SG_100', 'SG_200', 'SG_300', 'SG_500',
+		'HLBL_50'}
 
 	for _, fn in ipairs(fnames) do
 		local words_src = string.format('%s/%s_words.txt', src_dir, fn)

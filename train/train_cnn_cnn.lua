@@ -21,5 +21,7 @@ util.to_cuda(trainset)
 util.to_cuda(testset)
 
 local trainer = SGDTrainer(model, criterion)
-trainer.snapshotPrefix = 'done/cnn_cnn/iter_'
+trainer.snapshotPrefix = 'done/cnn_cnn/tmp/iter_'
+trainer.visualPath = 'done/cnn_cnn'
+trainer.snapshotIter = nil
 trainer:train(trainset, testset)

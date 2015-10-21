@@ -4,7 +4,7 @@ require 'util/SGDTrainer'
 
 local DAQUAR = require 'dataset/DAQUAR'
 local npy4th = require 'npy4th'
-local model = require 'model/cnn_cnn.a'
+local model = require 'model/cnn_cnn.b'
 local util = require 'util/util'
 
 -- load dataset
@@ -54,7 +54,7 @@ util.to_cuda(trainset)
 util.to_cuda(testset)
 
 local trainer = SGDTrainer(model, criterion)
-trainer.snapshotPrefix = 'done/cnn_cnn.a/tmp/iter_'
-trainer.visualPath = 'done/cnn_cnn.a'
+trainer.snapshotPrefix = 'done/cnn_cnn.b/tmp/iter_'
+trainer.visualPath = 'done/cnn_cnn.b'
 trainer.snapshotIter = nil
 trainer:train(trainset, testset)
