@@ -80,18 +80,20 @@ function util.start_with(str, head)
 	else return false end
 end
 
--- Compute accuracy of the [net] across the [dataset]
-function util.accuracy(net, dataset)
-	correct = 0
+-- Compute accuracy and loss of the [net] across the [dataset]
+function util.eval(net, criterion, dataset)
+	local correct = 0
+	local loss = 0
 	for i = 1, dataset:size() do
 		local x, t = unpack(dataset[i])
 		local y = net:forward(x)
+		loss = loss + criterion:forward(y, t)
 		local _, indices = torch.max(y, 1)
 		if t == indices[1] then
 			correct = correct + 1
 		end
 	end
-	return correct/dataset:size()
+	return correct/dataset:size(), loss/dataset:size()
 end
 
 -- Convert [dataset] into cuda mode

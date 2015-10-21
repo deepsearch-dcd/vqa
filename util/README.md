@@ -1,4 +1,4 @@
-# SGDTrainer
+# SGDTrainer.lua
 
 A simple trainer which call `accGradParameters()` and `updateParameters()` seperately to avoid clash in customed module.
 
@@ -10,15 +10,20 @@ trainer:train(trainset, testset)
 
 Before `trainer:train(trainset, testset)` you can modify some variables of SGDTrainer to adjust the behaviour of it. 
 
-* SGDTrainer.lr - Learning Rate.   
-* SGDTrainer.maxEpoch  
-* SGDTrainer.displayIter - The interval of Iteration to display loss and accuray.  
-* SGDTrainer.snapshotIter - The interval of Iteration to save the model.  
-* SGDTrainer.snapshotPrefix - The model save as `[Prefix}_[Iteration].t7`.  
+* lr - Learning Rate.   
+* maxEpoch  
+* displayIter - The interval of Iteration to display training loss and accuray.  
+* snapshotIter - The interval of Iteration to save the model.  
+* testIter = The interval of Iteration to test the model.  
+* snapshotPrefix - The model save as `[Prefix]_[Iteration].t7`.  
+* quiet - If be true, trainer won't print any thing.  
+* visualPath - Where the diagram to be saved.  
 
-The second argument of SGDTrainer:train() is optional, if given, the trainer will display the accuray in testset after each epoch.
+Display, test and snapshot can be disabled by set `nil` on `displayIter`, `testIter` and `snapshotIter` respectively. Some examples can be found in `train` directory.
 
-# util
+The second argument of SGDTrainer:train() is optional, if given and `testIter` not `nil`, the trainer will display the accuray in testset after each epoch.
+
+# util.lua
 
 Some useful tools.
 
@@ -40,8 +45,8 @@ Split the str using the character from `%S` as the seperator.
 ## start\_with(str, head)
 Check if the `str` starts with `head`. If so, return `true`.
 
-## accuracy(net, dataset)
-Feed the dataset to the trained net and return the accurcy the net reaches.
+## eval(net, criterion, dataset)
+Feed the dataset to the trained net and return the accurcy and loss the net reaches.
 
 ## narrow(dataset, size)
 Chop the dataset to the given `size`. This is useful when check the model.

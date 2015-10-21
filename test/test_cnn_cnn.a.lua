@@ -23,7 +23,7 @@ local criterion = nn.ClassNLLCriterion():cuda()
 local trainer = SGDTrainer(model, criterion)
 trainer.maxEpoch = 10
 trainer.snapshotIter = nil
-trainer.verbose = false
+trainer.quiet = true
 
 trainer:train(dataset)
 print 'OK'
