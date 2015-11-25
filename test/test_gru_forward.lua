@@ -14,20 +14,20 @@ local rnn_sizes = {rnn_size1, rnn_size2, rnn_size3}
 local num_layer = #rnn_sizes
 local dropout = 0.5
 
-local input = torch.rand(input_size)
-local prev_h = torch.rand(rnn_size)
-local prev_h1 = torch.rand(rnn_size1)
-local prev_h2 = torch.rand(rnn_size2)
-local prev_h3 = torch.rand(rnn_size3)
+local input = torch.rand(1, input_size)
+local prev_h = torch.rand(1, rnn_size)
+local prev_h1 = torch.rand(1, rnn_size1)
+local prev_h2 = torch.rand(1, rnn_size2)
+local prev_h3 = torch.rand(1, rnn_size3)
 
 -- single rnn
 local singlernn = GRU.single(input_size, rnn_size)
 inputs = {input, prev_h}
 outputs = singlernn:forward(inputs)
 local next_h = outputs
-print('input size: ' .. input:size()[1])
-print('rnn size: ' .. prev_h:size()[1])
-print('next_h size: ' .. next_h:size()[1])
+print('input size: ' .. input:size()[2])
+print('rnn size: ' .. prev_h:size()[2])
+print('next_h size: ' .. next_h:size()[2])
 print('single outputs:', outputs)
 
 -- multiple rnn

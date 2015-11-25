@@ -80,7 +80,11 @@ end
 local function extract_image_vocab(train_list, test_list)
 	return util.extract_vocab(util.flatten({train_list, test_list}))
 end
-	
+
+local function extract_word_vocab_nopad(questions)
+	return util.extract_vocab(util.flatten(questions), unk)
+end
+
 --[[
 Convert words in questions to index according to the given vocabulary.
 Assume the padding word comes first in the vocabulary.
@@ -100,6 +104,22 @@ local function questions_to_index(questions, word_to_index, length)
 				data[i][j] = word_to_index[unk]
 			end
 		end
+	end
+	return data
+end
+
+local function questions_to_index_table(questions, word_to_index)
+	local data = {}
+	for i, q in ipairs(questions) do
+		local ques = {}
+		for j, w in ipairs(q) do
+			if word_to_index[w] then
+				table.insert(ques, word_to_index[w])
+			else
+				table.insert(ques, word_to_index[unk])
+			end
+		end
+		table.insert(data, ques)
 	end
 	return data
 end
@@ -142,6 +162,22 @@ local function to_index(images, questions, answers, vocab, length)
     return dataset
 end
 
+local function to_index_table(images, questions, answers, vocab)
+	local dataset = {}
+	dataset.images = images_to_index(images, vocab.image_to_index)
+	dataset.questions = questions_to_index_table(questions, vocab.word_to_index)
+	dataset.answers = answers_to_index(answers, vocab.answer_to_index)
+
+    -- some statistics
+    dataset.nimage = #vocab.index_to_image  -- total distinct images
+    dataset.nvocab = #vocab.index_to_word   -- total distinct words
+    dataset.nanswer = #vocab.index_to_answer    -- total distinct answer
+    dataset.nsample = dataset.images:size(1)
+
+    --return util.index_dataset(dataset)
+    return dataset
+end
+
 local function dump_image_list(dest_path, index_to_image)
 	print('dump image list to: '..dest_path)
 	local f = assert(io.open(dest_path, 'w'))
@@ -151,7 +187,7 @@ local function dump_image_list(dest_path, index_to_image)
 	f:close()
 end
 
-local function process_all(raw_train_path, raw_test_path, trainset_path, testset_path,image_list_path, vocab_path)
+local function process_all(raw_train_path, raw_test_path, trainset_path, testset_path, image_list_path, vocab_path)
 	print('load train set...')
 	train_images, train_questions, train_answers = process_raw(raw_train_path)
 	print('load test set...')
@@ -169,16 +205,65 @@ local function process_all(raw_train_path, raw_test_path, trainset_path, testset
 	vocab['image_to_index'], vocab['index_to_image'] =
 		extract_image_vocab(train_images, test_images)
 	print('image vocabulary: '..#vocab['index_to_image'])
-	dump_image_list(image_list_path, vocab['index_to_image'])
-	torch.save(vocab_path, vocab)
+	if image_list_path then
+		dump_image_list(image_list_path, vocab['index_to_image'])
+	end
+	if vocab_path then
+		torch.save(vocab_path, vocab)
+	end
 
 	-- convert to index
-	print('save trainset...')
 	trainset = to_index(train_images, train_questions, train_answers, vocab, 30)
-	torch.save(trainset_path, trainset)
-	print('save testset...')
+	if trainset_path then
+		print('save trainset...')
+		torch.save(trainset_path, trainset)
+	end
 	testset = to_index(test_images, test_questions, test_answers, vocab, 30)
-	torch.save(testset_path, testset)
+	if testset_path then
+		print('save testset ...')
+		torch.save(testset_path, testset)
+	end
+	
+	return trainset, testset, vocab
+end
+
+local function process_all_totable(raw_train_path, raw_test_path, trainset_path, testset_path, image_list_path, vocab_path)
+	print('Process_all_totable ...')
+	print('load train set ...')
+	train_images, train_questions, train_answers = process_raw(raw_train_path)
+	print('load test set ...')
+	test_images, test_questions, test_answers = process_raw(raw_test_path)
+	
+	-- build vocab
+	print('build vocabulary ...')
+	local vocab = {}
+	vocab['word_to_index'], vocab['index_to_word'] = 
+		extract_word_vocab_nopad(train_questions)
+	print('word vocabulary: '..#vocab['index_to_word'])
+	vocab['answer_to_index'], vocab['index_to_answer'] =
+		extract_answer_vocab(train_answers)
+	print('answer vocabulary: '..#vocab['index_to_answer'])
+	vocab['image_to_index'], vocab['index_to_image'] =
+		extract_image_vocab(train_images, test_images)
+	print('image vocabulary: '..#vocab['index_to_image'])
+	if image_list_path then
+		dump_image_list(image_list_path, vocab['index_to_image'])
+	end
+	if vocab_path then
+		torch.save(vocab_path, vocab)
+	end
+
+	-- convert to index
+	trainset = to_index_table(train_images, train_questions, train_answers, vocab, 30)
+	if trainset_path then
+		print('save trainset ...')
+		torch.save(trainset_path, trainset)
+	end
+	testset = to_index_table(test_images, test_questions, test_answers, vocab, 30)
+	if testset_path then
+		print('save testset ...')
+		torch.save(testset_path, testset)
+	end
 	
 	return trainset, testset, vocab
 end
@@ -262,6 +347,28 @@ function DAQUAR.process_and_check()
 
 	print('check data at: '..done_dir)
 	check_all(raw_train_path, raw_test_path, trainset_path, testset_path, vocab_path)
+
+	return trainset, testset, vocab
+end
+
+function DAQUAR.process_to_table()
+	local data_dir = paths.dirname(paths.thisfile())
+	data_dir = paths.concat(data_dir, 'data/DAQUAR/DAQUAR-ALL')
+	done_dir = paths.concat(data_dir, 'done_table')
+	paths.mkdir(done_dir)
+
+	local raw_train_path = paths.concat(data_dir, 'qa.894.raw.train.txt')
+	local raw_test_path = paths.concat(data_dir, 'qa.894.raw.test.txt')
+	local trainset_path = nil -- paths.concat(done_dir, 'trainset.t7')
+	local testset_path = nil -- paths.concat(done_dir, 'testset.t7')
+	local image_list_path = nil -- paths.concat(done_dir, 'image_list.txt')
+	local vocab_path = nil -- paths.concat(done_dir, 'vocab.t7')
+
+	print('process data at: '..data_dir)
+	trainset, testset, vocab = process_all_totable(raw_train_path, raw_test_path, trainset_path, testset_path, image_list_path, vocab_path)
+
+	--print('check data at: '..done_dir)
+	--check_all(raw_train_path, raw_test_path, trainset_path, testset_path, vocab_path)
 
 	return trainset, testset, vocab
 end

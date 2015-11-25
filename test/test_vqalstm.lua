@@ -1,4 +1,4 @@
---require('..')
+require('..')
 
 local LSTM = require 'module/LSTM'
 
