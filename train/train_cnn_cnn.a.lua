@@ -3,8 +3,8 @@ require 'cunn'
 require 'util/SGDTrainer'
 
 local DAQUAR = require 'dataset/DAQUAR'
-local npy4th = require 'npy4th'
-local model = require 'model/cnn_cnn.a'
+--local npy4th = require 'npy4th'
+--local model = require 'model/cnn_cnn.a'
 local util = require 'util/util'
 
 -- load dataset
