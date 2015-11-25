@@ -100,7 +100,7 @@ end
 function util.to_cuda(dataset)
 	for k, v in pairs(dataset) do
 		if type(v) == 'userdata' then
-			pcall(function() dataset[k] = dataset[k]:cuda() end)
+			pcall(function() dataset[k] = dataset[k]:float():cuda() end)
 		end
 	end
 	return dataset
@@ -119,16 +119,45 @@ function util.narrow(dataset, size)
 	return dataset
 end
 
--- Lookup table, switch indices to the content associated with it
-function util.lookup(indices, table)
-	assert(indices:nDimension() == 1)
-	ret_size = table:size()
-	ret_size[1] = indices:size(1)
-	ret = torch.Tensor(ret_size)
-	for i = 1, indices:size(1) do
-		ret[i] = table[indices[i]]
-	end
-	return ret
+-- index dataset
+function util.index_dataset(dataset)
+    setmetatable(dataset, {__index =
+        function(t, i)
+            if type(i) == 'number' then
+                return {{t.images[{{i}}], t.questions[{{i}}]}, t.answers[{{i}}]}
+            end
+        end}
+    )
+   function dataset:size() return self.images:size(1) end
+
+   return dataset
+end
+
+-- assemble dataset by replacing id with feature vector(e.g. word embedding)
+function util.assemble(ids, vocab)
+    assert(#ids:size() > 0)
+    if #vocab:size() == 1 then
+        vocab = vocab:view(-1,1)
+    end
+    assert(#vocab:size() == 2)
+
+    -- get creator
+    local Tensor = ids.new
+    local Storage = ids:size().new
+
+    -- allocate the output tensor
+    local out_size = ids:size():totable()
+    table.insert(out_size, vocab:size(2))
+    local out = Tensor(Storage(out_size))
+
+    -- start assembling
+    local flat_ids = ids:view(-1)
+    local flat_out = out:view(ids:nElement(), vocab:size(2))
+    
+    for i = 1, flat_ids:size(1) do
+        flat_out[i] = vocab[flat_ids[i]]
+    end
+    return out
 end
 
 return util

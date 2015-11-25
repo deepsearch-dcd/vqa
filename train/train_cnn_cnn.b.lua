@@ -1,6 +1,7 @@
 require 'nn'
 require 'cunn'
-require 'util/SGDTrainer'
+--require 'util/SGDTrainer'
+require 'util/train'
 
 local DAQUAR = require 'dataset/DAQUAR'
 local npy4th = require 'npy4th'
@@ -29,32 +30,28 @@ do
 	end
 	print(string.format('unkown word: %d', unk_count))
 
+
 	local to_embedding = 
 		function(dataset)
-			local q_count = dataset.questions:size(1)
-			-- a question has 30 word.
-			local flat_q = dataset.questions:resize(q_count*30)
-			flat_q = util.lookup(flat_q, torch.Tensor(vocab_to_emb))
-			flat_q = util.lookup(flat_q, index_to_emb) 
-			-- word embedding dimension is 50
-			dataset.questions = flat_q:resize(q_count, 30, 50)
+            dataset.questions = util.assemble(dataset.questions, torch.Tensor(vocab_to_emb)):resizeAs(dataset.questions)
+            dataset.questions = util.assemble(dataset.questions, index_to_emb)
 		end
 	to_embedding(trainset)
 	to_embedding(testset)
 end
 
 -- assembly image feature into dataset
-trainset.images = util.lookup(trainset.images, features)
-testset.images = util.lookup(testset.images, features)
+trainset.images = util.assemble(trainset.images, features)
+testset.images = util.assemble(testset.images, features)
 
 -- train and test
-model = model:cuda()
-local criterion = nn.ClassNLLCriterion():cuda()
-util.to_cuda(trainset)
-util.to_cuda(testset)
+local criterion = nn.ClassNLLCriterion()
 
-local trainer = SGDTrainer(model, criterion)
-trainer.snapshotPrefix = 'done/cnn_cnn.b/tmp/iter_'
-trainer.visualPath = 'done/cnn_cnn.b'
-trainer.snapshotIter = nil
-trainer:train(trainset, testset)
+local opt = {
+    batch_size = 32,
+    display_interval = 50,
+    gpuid = 0,
+    plot_dir = 'done/cnn_cnn.b',
+    learningRate = 0.001,
+}
+train(opt, model, criterion, trainset, testset)

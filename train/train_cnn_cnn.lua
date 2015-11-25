@@ -1,6 +1,6 @@
 require 'nn'
 require 'cunn'
-require 'util/SGDTrainer'
+require 'util/train'
 
 local DAQUAR = require 'dataset/DAQUAR'
 local npy4th = require 'npy4th'
@@ -12,16 +12,16 @@ local trainset, testset, vocab = DAQUAR.process_and_check()
 local features = npy4th.loadnpy('feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
 
 -- switch image index to feature
-trainset.images = util.lookup(trainset.images, features)
-testset.images = util.lookup(testset.images, features)
+trainset.images = util.assemble(trainset.images, features)
+testset.images = util.assemble(testset.images, features)
 
-model = model:cuda()
-local criterion = nn.ClassNLLCriterion():cuda()
-util.to_cuda(trainset)
-util.to_cuda(testset)
+local criterion = nn.ClassNLLCriterion()
 
-local trainer = SGDTrainer(model, criterion)
-trainer.snapshotPrefix = 'done/cnn_cnn/tmp/iter_'
-trainer.visualPath = 'done/cnn_cnn'
-trainer.snapshotIter = nil
-trainer:train(trainset, testset)
+local opt = {
+    batch_size = 4,
+    display_interval = 500,
+    gpuid = 0,
+    plot_dir = 'done/cnn_cnn',
+    tag = 'apple',
+}
+train(opt, model, criterion, trainset, testset)

@@ -1,27 +1,22 @@
-# SGDTrainer.lua
+# train.lua
 
-A simple trainer which call `accGradParameters()` and `updateParameters()` seperately to avoid clash in customed module.
+Tool to train a model.
 
 ```lua
-require 'util/SGDTrainer'
-trainer = SGDTrainer(model, criterion)
-trainer:train(trainset, testset)
+require 'util/train'
+
+train(opt, model, criterion, trainset, testset)
 ```
 
-Before `trainer:train(trainset, testset)` you can modify some variables of SGDTrainer to adjust the behaviour of it. 
+`opt` is a table containing all the parameters the `train()` need.
 
-* lr - Learning Rate.   
-* maxEpoch  
-* displayIter - The interval of Iteration to display training loss and accuray.  
-* snapshotIter - The interval of Iteration to save the model.  
-* testIter = The interval of Iteration to test the model.  
-* snapshotPrefix - The model save as `[Prefix]_[Iteration].t7`.  
-* quiet - If be true, trainer won't print any thing.  
-* visualPath - Where the diagram to be saved.  
+`trainset` and `testset` is a table containing the fields as follow, `images`, `questions`, `answers`, `nsample`, `nimage`, `nvocab`, `nanswer`.
 
-Display, test and snapshot can be disabled by set `nil` on `displayIter`, `testIter` and `snapshotIter` respectively. Some examples can be found in `train` directory.
+If `testset` is not given, then `train()` will not test the model during training.
 
-The second argument of SGDTrainer:train() is optional, if given and `testIter` not `nil`, the trainer will display the accuray in testset after each epoch.
+# Plotter.lua
+
+A plot tool like `optim.Logger`. 
 
 # util.lua
 

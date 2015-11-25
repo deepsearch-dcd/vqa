@@ -126,24 +126,20 @@ end
 
 local function to_index(images, questions, answers, vocab, length)
 	local dataset = {}
-	dataset['images'] = images_to_index(images, 
-					vocab['image_to_index'])
-	dataset['questions'] = questions_to_index(questions, 
-						vocab['word_to_index'], 
+	dataset.images = images_to_index(images, vocab.image_to_index)
+	dataset.questions = questions_to_index(questions, 
+						vocab.word_to_index, 
 						length)
-	dataset['answers'] = answers_to_index(answers, 
-						vocab['answer_to_index'])
-	setmetatable(dataset, {__index = 
-		function(t, i)
-			if type(i)=='number' then
-				return {{t['images'][i], t['questions'][i]}
-					, t['answers'][i]}
-			end
-		end}
-	)
-	function dataset:size() return self['images']:size(1) end
+	dataset.answers = answers_to_index(answers, vocab.answer_to_index)
 
-	return dataset
+    -- some statistics
+    dataset.nimage = #vocab.index_to_image  -- total distinct images
+    dataset.nvocab = #vocab.index_to_word   -- total distinct words
+    dataset.nanswer = #vocab.index_to_answer    -- total distinct answer
+    dataset.nsample = dataset.images:size(1)
+
+    --return util.index_dataset(dataset)
+    return dataset
 end
 
 local function dump_image_list(dest_path, index_to_image)
