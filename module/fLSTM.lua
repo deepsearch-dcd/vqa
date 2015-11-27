@@ -1,7 +1,7 @@
 --[[
 
  Long Short-Term Memory.
-
+ treelstm -> vqalstm
 --]]
 
 local LSTM, parent = torch.class('vqalstm.LSTM', 'nn.Module')
@@ -14,6 +14,7 @@ function LSTM:__init(config)
   self.num_layers = config.num_layers or 1
   self.gate_output = config.gate_output
   if self.gate_output == nil then self.gate_output = true end
+  self.cuda = config.cuda or false
 
   self.master_cell = self:new_cell()
   self.depth = 0
@@ -91,6 +92,9 @@ function LSTM:new_cell()
   -- this avoids some quirks with nngraph involving tables of size 1.
   htable, ctable = nn.Identity()(htable), nn.Identity()(ctable)
   local cell = nn.gModule({input, ctable_p, htable_p}, {ctable, htable})
+  if self.cuda then
+    cell = cell:cuda()
+  end
 
   -- share parameters
   if self.master_cell then

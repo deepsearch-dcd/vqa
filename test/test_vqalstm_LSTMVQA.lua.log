@@ -1,0 +1,35 @@
+[program started on Sat Nov 28 05:48:08 2015] 
+[command line arguments] 
+[----------------------] 
+--------------------------------------------------------------------------- 
+LSTM for VQA 
+--------------------------------------------------------------------------- 
+loading datasets 
+process data at: /home/deepnet/lyt/vqa/dataset/data/DAQUAR/DAQUAR-ALL 
+Process_all_totable ... 
+load train set ... 
+total lines: 13590 
+max length: 31 min length: 7 
+#images: 6795 #questions: 6795 #answers: 6795 
+normalize image: 6808 
+load test set ... 
+total lines: 11346 
+max length: 28 min length: 7 
+#images: 5673 #questions: 5673 #answers: 5673 
+normalize image: 5681 
+build vocabulary ... 
+word vocabulary: 856 
+answer vocabulary: 969 
+image vocabulary: 1447 
+--------------------------------------------------------------------------- 
+model configuration 
+--------------------------------------------------------------------------- 
+max epochs = 50 
+--------------------------------------------------------------------------- 
+Training model 
+--------------------------------------------------------------------------- 
+-- epoch 1 
+-- finished epoch in 114.52482390404s 
+-- train score: 0.040029433406917 
+-- test score: 0.049709148598625 
+-- epoch 2 
