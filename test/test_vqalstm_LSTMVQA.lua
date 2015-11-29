@@ -1,6 +1,9 @@
 if vqalstm==nil then
-	require('..')
+  require('..')
 end
+
+cmd = torch.CmdLine()
+cmd:log(paths.thisfile() ..'.log')
 
 function accuracy(pred, gold)
   return torch.eq(pred, gold):sum() / pred:size(1)
@@ -11,17 +14,37 @@ args.model = 'lstm'
 args.layers = 1
 args.dim = 150
 args.epochs = 50
+args.cuda = true
 local vocab_size = 10000
 local emb_dim = 50
 local model_class, model_structure = vqalstm.LSTMVQA, args.model
 local num_epochs = args.epochs
+local cuda = args.cuda
 header('LSTM for VQA')
 
 ---------- load dataset ----------
 print('loading datasets')
 local trainset, testset, vocab = DAQUAR.process_to_table()
-printf('num train = %d\n', trainset.size)
-printf('num test  = %d\n', testset.size)
+for i=1,trainset.size do
+  trainset.questions[i] = torch.Tensor(trainset.questions[i])
+end
+for i=1,testset.size do
+  testset.questions[i] = torch.Tensor(testset.questions[i])
+end
+
+if cuda then
+  --trainset.images = trainset.images:float():cuda()
+  --testset.images = testset.images:float():cuda()
+  for i=1,trainset.size do
+    trainset.questions[i] = trainset.questions[i]:float():cuda()
+  end
+  for i=1,testset.size do
+    testset.questions[i] = testset.questions[i]:float():cuda()
+  end
+end
+
+print('num train = '.. trainset.size)
+print('num test  = '.. testset.size)
 ---------- load wordvec ----------
 local vecs = torch.rand(vocab_size, emb_dim)
 
@@ -31,12 +54,13 @@ local model = model_class{
   structure = model_structure,
   num_layers = args.layers,
   mem_dim = args.dim,
-  num_classes = trainset.nanswer
+  num_classes = trainset.nanswer,
+  cuda = args.cuda
 }
 
 ---------- print information ----------
 header('model configuration')
-printf('max epochs = %d\n', num_epochs)
+print('max epochs = '.. num_epochs)
 model:print_config()
 
 ---------- TRAIN ----------
@@ -46,20 +70,22 @@ local best_dev_model = model
 header('Training model')
 for i = 1, num_epochs do
   local start = sys.clock()
-  printf('-- epoch %d\n', i)
+  print('-- epoch '.. i)
   model:train(trainset)
-  printf('-- finished epoch in %.2fs\n', sys.clock() - start)
+  print('-- finished epoch in '.. string.format("%.2fs", (sys.clock() - start)))
   
   -- uncomment to compute train scores
   -- [[
+  start = sys.clock()
   local train_predictions = model:predict_dataset(trainset)
   local train_score = accuracy(train_predictions, trainset.answers)
-  printf('-- train score: %.4f\n', train_score)
+  print('-- train score: '.. train_score ..', cost '.. string.format("%.2fs", (sys.clock() - start)))
   --]]
 
+  start = sys.clock()
   local dev_predictions = model:predict_dataset(testset)
   local dev_score = accuracy(dev_predictions, testset.answers)
-  printf('-- test score: %.4f\n', dev_score)
+  print('-- test score: '.. dev_score ..', cost '.. string.format("%.2fs", (sys.clock() - start)))
 
   if dev_score > best_dev_score then
     best_dev_score = dev_score
@@ -68,10 +94,11 @@ for i = 1, num_epochs do
       structure = model_structure,
       num_layers = args.layers,
       mem_dim = args.dim,
-      num_classes = trainset.nanswer
+      num_classes = trainset.nanswer,
+      cuda = args.cuda
     }
     best_dev_model.params:copy(model.params)
     best_dev_model.emb.weight:copy(model.emb.weight)
   end
 end
-printf('finished training in %.2fs\n', sys.clock() - train_start)
+print('finished training in '.. string.format("%.2fs", (sys.clock() - train_start)))

@@ -3,6 +3,7 @@ require('nn')
 require('nngraph')
 require('optim')
 require('xlua')
+require('cunn')
 --require('sys')
 --require('lfs')
 DAQUAR = require 'dataset/DAQUAR'

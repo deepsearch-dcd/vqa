@@ -16,7 +16,7 @@ function LSTMVQA:__init(config)
   self.structure         = config.structure         or 'lstm' -- {lstm, bilstm}
   self.dropout           = (config.dropout == nil) and true or config.dropout
   self.num_classes       = config.num_classes
-  --self.train_subtrees    = 4  -- number of subtrees to sample during training
+  self.cuda              = config.cuda              or false
   assert(self.num_classes~=nil)
 
   -- word embedding
@@ -35,12 +35,20 @@ function LSTMVQA:__init(config)
   -- vqa classification module
   self.vqa_module = self:new_vqa_module()
 
+  if self.cuda then
+    self.emb = self.emb:cuda()
+    self.in_zeros = self.in_zeros:float():cuda()
+    self.criterion = self.criterion:cuda()
+    self.vqa_module = self.vqa_module:cuda()
+  end
+
   -- initialize LSTM model
   local lstm_config = {
     in_dim = self.emb_dim,
     mem_dim = self.mem_dim,
     num_layers = self.num_layers,
     gate_output = true,
+    cuda = self.cuda
   }
 
   if self.structure == 'lstm' then
@@ -55,6 +63,11 @@ function LSTMVQA:__init(config)
   local modules = nn.Parallel()
     :add(self.lstm)
     :add(self.vqa_module)
+
+  if self.cuda then
+    modules = modules:cuda()
+  end
+
   self.params, self.grad_params = modules:getParameters()
 
   -- share must only be called after getParameters, since this changes the
@@ -119,7 +132,7 @@ function LSTMVQA:train(dataset)
       local loss = 0
       for j = 1, batch_size do
         local idx = indices[i + j - 1]
-        local ques = torch.Tensor(dataset.questions[idx]) -- question word indicies
+        local ques = dataset.questions[idx] -- question word indicies
         local ans = dataset.answers[idx]
         local img = dataset.images[idx]
 
@@ -177,9 +190,15 @@ function LSTMVQA:LSTM_backward(ques, inputs, rep_grad)
   local grad
   if self.num_layers == 1 then
     grad = torch.zeros(ques:nElement(), self.mem_dim)
+    if self.cuda then
+      grad = grad:float():cuda()
+    end
     grad[ques:nElement()] = rep_grad
   else
     grad = torch.zeros(ques:nElement(), self.num_layers, self.mem_dim)
+    if self.cuda then
+      grad = grad:float():cuda()
+    end
     for l = 1, self.num_layers do
       grad[{ques:nElement(), l, {}}] = rep_grad[l]
     end
@@ -194,11 +213,19 @@ function LSTMVQA:BiLSTM_backward(ques, inputs, rep_grad)
   if self.num_layers == 1 then
     grad   = torch.zeros(ques:nElement(), self.mem_dim)
     grad_b = torch.zeros(ques:nElement(), self.mem_dim)
+    if self.cuda then
+      grad = grad:float():cuda()
+      grad_b = grad_b:float():cuda()
+    end
     grad[ques:nElement()] = rep_grad[1]
     grad_b[1] = rep_grad[2]
   else
     grad   = torch.zeros(ques:nElement(), self.num_layers, self.mem_dim)
     grad_b = torch.zeros(ques:nElement(), self.num_layers, self.mem_dim)
+    if self.cuda then
+      grad = grad:float():cuda()
+      grad_b = grad_b:float():cuda()
+    end
     for l = 1, self.num_layers do
       grad[{ques:nElement(), l, {}}] = rep_grad[1][l]
       grad_b[{1, l, {}}] = rep_grad[2][l]
@@ -239,7 +266,7 @@ function LSTMVQA:predict_dataset(dataset)
   local predictions = torch.Tensor(dataset.size)
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
-    predictions[i] = self:predict(torch.Tensor(dataset.questions[i]))
+    predictions[i] = self:predict(dataset.questions[i])
   end
   return predictions
 end
@@ -259,17 +286,17 @@ end
 function LSTMVQA:print_config()
   local num_params = self.params:size(1)
   local num_vqa_params = self:new_vqa_module():getParameters():size(1)
-  printf('%-25s = %d\n',   'num params', num_params)
-  printf('%-25s = %d\n',   'num compositional params', num_params - num_vqa_params)
-  printf('%-25s = %d\n',   'word vector dim', self.emb_dim)
-  printf('%-25s = %d\n',   'LSTM memory dim', self.mem_dim)
-  printf('%-25s = %s\n',   'LSTM structure', self.structure)
-  printf('%-25s = %d\n',   'LSTM layers', self.num_layers)
-  printf('%-25s = %.2e\n', 'regularization strength', self.reg)
-  printf('%-25s = %d\n',   'minibatch size', self.batch_size)
-  printf('%-25s = %.2e\n', 'learning rate', self.learning_rate)
-  printf('%-25s = %.2e\n', 'word vector learning rate', self.emb_learning_rate)
-  printf('%-25s = %s\n',   'dropout', tostring(self.dropout))
+  print(string.format('%-25s = %d',   'num params', num_params))
+  print(string.format('%-25s = %d',   'num compositional params', num_params - num_vqa_params))
+  print(string.format('%-25s = %d',   'word vector dim', self.emb_dim))
+  print(string.format('%-25s = %d',   'LSTM memory dim', self.mem_dim))
+  print(string.format('%-25s = %s',   'LSTM structure', self.structure))
+  print(string.format('%-25s = %d',   'LSTM layers', self.num_layers))
+  print(string.format('%-25s = %.2e', 'regularization strength', self.reg))
+  print(string.format('%-25s = %d',   'minibatch size', self.batch_size))
+  print(string.format('%-25s = %.2e', 'learning rate', self.learning_rate))
+  print(string.format('%-25s = %.2e', 'word vector learning rate', self.emb_learning_rate))
+  print(string.format('%-25s = %s',   'dropout', tostring(self.dropout)))
 end
 
 --
