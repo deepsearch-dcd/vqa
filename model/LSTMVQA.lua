@@ -16,7 +16,7 @@ function LSTMVQA:__init(config)
   self.structure         = config.structure         or 'lstm' -- {lstm, bilstm}
   self.dropout           = (config.dropout == nil) and true or config.dropout
   self.num_classes       = config.num_classes
-  self.cuda              = config.cuda or false
+  --self.train_subtrees    = 4  -- number of subtrees to sample during training
   assert(self.num_classes~=nil)
 
   -- word embedding
@@ -41,7 +41,6 @@ function LSTMVQA:__init(config)
     mem_dim = self.mem_dim,
     num_layers = self.num_layers,
     gate_output = true,
-    cuda = self.cuda
   }
 
   if self.structure == 'lstm' then
@@ -57,11 +56,6 @@ function LSTMVQA:__init(config)
     :add(self.lstm)
     :add(self.vqa_module)
   self.params, self.grad_params = modules:getParameters()
-  if self.cuda then
-    self.emb = self.emb:float():cuda()
-    --modules = modules:cuda()
-    self.criterion = self.criterion:cuda()
-  end
 
   -- share must only be called after getParameters, since this changes the
   -- location of the parameters
@@ -102,11 +96,7 @@ function LSTMVQA:new_vqa_module()
       nn.Linear(input_dim, self.num_classes)(vec))
   end
 
-  local mod = nn.gModule(inputs, {logprobs})
-  if self.cuda then
-    mod = mod:cuda()
-  end
-  return mod
+  return nn.gModule(inputs, {logprobs})
 end
 
 function LSTMVQA:train(dataset)
@@ -130,9 +120,6 @@ function LSTMVQA:train(dataset)
       for j = 1, batch_size do
         local idx = indices[i + j - 1]
         local ques = torch.Tensor(dataset.questions[idx]) -- question word indicies
-        if self.cuda then
-          ques = ques:float():cuda()
-        end
         local ans = dataset.answers[idx]
         local img = dataset.images[idx]
 
@@ -226,9 +213,6 @@ end
 function LSTMVQA:predict(ques)
   self.lstm:evaluate()
   self.vqa_module:evaluate()
-  if self.cuda then
-    ques = ques:float():cuda()
-  end
   local inputs = self.emb:forward(ques)
 
   local rep
@@ -255,8 +239,7 @@ function LSTMVQA:predict_dataset(dataset)
   local predictions = torch.Tensor(dataset.size)
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
-    local ques = torch.Tensor(dataset.questions[i]) -- question word indicies
-    predictions[i] = self:predict(ques)
+    predictions[i] = self:predict(torch.Tensor(dataset.questions[i]))
   end
   return predictions
 end
@@ -287,7 +270,6 @@ function LSTMVQA:print_config()
   printf('%-25s = %.2e\n', 'learning rate', self.learning_rate)
   printf('%-25s = %.2e\n', 'word vector learning rate', self.emb_learning_rate)
   printf('%-25s = %s\n',   'dropout', tostring(self.dropout))
-  printf('%-25s = %s\n',   'cuda', tostring(self.cuda))
 end
 
 --
@@ -298,7 +280,6 @@ function LSTMVQA:save(path)
   local config = {
     batch_size        = self.batch_size,
     dropout           = self.dropout,
-    cuda              = self.cuda,
     emb_learning_rate = self.emb_learning_rate,
     emb_vecs          = self.emb.weight:float(),
     learning_rate     = self.learning_rate,

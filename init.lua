@@ -3,7 +3,6 @@ require('nn')
 require('nngraph')
 require('optim')
 require('xlua')
-require('cunn')
 --require('sys')
 --require('lfs')
 DAQUAR = require 'dataset/DAQUAR'
@@ -25,7 +24,6 @@ include('model/LSTMVQA.lua')
 --include('sentiment/TreeLSTMSentiment.lua')
 
 printf = utils.printf
---printf=function(...) print(string.format(...)) end
 
 -- global paths (modify if desired)
 --vqalstm.data_dir        = 'data'
@@ -38,15 +36,11 @@ function share_params(cell, src)
     for i = 1, #cell.forwardnodes do
       local node = cell.forwardnodes[i]
       if node.data.module then
-        --print('module: '..torch.type(node.data.module.weight or node.data.module.bias))
-        --print('src: '..torch.type(src.forwardnodes[i].data.module.weight or src.forwardnodes[i].data.module.bias))
         node.data.module:share(src.forwardnodes[i].data.module,
           'weight', 'bias', 'gradWeight', 'gradBias')
       end
     end
   elseif torch.isTypeOf(cell, 'nn.Module') then
-    --print('module: '..torch.type(node.data.module.weight or node.data.module.bias))
-    --print('src: '..torch.type(src.forwardnodes[i].data.module.weight or src.forwardnodes[i].data.module.bias))
     cell:share(src, 'weight', 'bias', 'gradWeight', 'gradBias')
   else
     error('parameters cannot be shared for this input')
@@ -54,9 +48,9 @@ function share_params(cell, src)
 end
 
 function header(s)
-  print(string.rep('-', 75)) -- 80
+  print(string.rep('-', 80))
   print(s)
-  print(string.rep('-', 75)) -- 80
+  print(string.rep('-', 80))
 end
 
 header('init function being called ...')

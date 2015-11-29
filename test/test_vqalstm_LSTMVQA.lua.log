@@ -1,4 +1,4 @@
-[program started on Sat Nov 28 05:48:08 2015] 
+[program started on Sat Nov 28 06:07:35 2015] 
 [command line arguments] 
 [----------------------] 
 --------------------------------------------------------------------------- 
@@ -29,7 +29,11 @@ max epochs = 50
 Training model 
 --------------------------------------------------------------------------- 
 -- epoch 1 
--- finished epoch in 114.52482390404s 
+-- finished epoch in 116.16035103798s 
 -- train score: 0.040029433406917 
 -- test score: 0.049709148598625 
 -- epoch 2 
+-- finished epoch in 128.01359987259s 
+-- train score: 0.040029433406917 
+-- test score: 0.049709148598625 
+-- epoch 3 
