@@ -173,6 +173,7 @@ local function to_index_table(images, questions, answers, vocab)
     dataset.nvocab = #vocab.index_to_word   -- total distinct words
     dataset.nanswer = #vocab.index_to_answer    -- total distinct answer
     dataset.nsample = dataset.images:size(1)
+    dataset.size = dataset.nsample
 
     --return util.index_dataset(dataset)
     return dataset

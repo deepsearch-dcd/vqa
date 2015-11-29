@@ -2,9 +2,12 @@ require('torch')
 require('nn')
 require('nngraph')
 require('optim')
---require('xlua')
+require('xlua')
+require('cunn')
 --require('sys')
 --require('lfs')
+DAQUAR = require 'dataset/DAQUAR'
+npy4th = require 'npy4th'
 
 vqalstm = {}
 
@@ -13,9 +16,9 @@ vqalstm = {}
 --include('util/Vocab.lua')
 --include('layers/CRowAddTable.lua')
 include('module/fLSTM.lua')
---include('models/TreeLSTM.lua')
---include('models/ChildSumTreeLSTM.lua')
---include('models/BinaryTreeLSTM.lua')
+include('model/LSTMVQA.lua')
+--include('model/ChildSumTreeLSTM.lua')
+--include('model/BinaryTreeLSTM.lua')
 --include('relatedness/LSTMSim.lua')
 --include('relatedness/TreeLSTMSim.lua')
 --include('sentiment/LSTMSentiment.lua')

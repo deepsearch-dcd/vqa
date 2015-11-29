@@ -1,7 +1,7 @@
 --[[
 
  Long Short-Term Memory.
-
+ treelstm -> vqalstm
 --]]
 
 local LSTM, parent = torch.class('vqalstm.LSTM', 'nn.Module')
@@ -14,6 +14,7 @@ function LSTM:__init(config)
   self.num_layers = config.num_layers or 1
   self.gate_output = config.gate_output
   if self.gate_output == nil then self.gate_output = true end
+  self.cuda = config.cuda or false
 
   self.master_cell = self:new_cell()
   self.depth = 0
@@ -27,6 +28,12 @@ function LSTM:__init(config)
     htable_init = torch.zeros(self.mem_dim)
     ctable_grad = torch.zeros(self.mem_dim)
     htable_grad = torch.zeros(self.mem_dim)
+    if self.cuda then
+      ctable_init = ctable_init:float():cuda()
+      htable_init = htable_init:float():cuda()
+      ctable_grad = ctable_grad:float():cuda()
+      htable_grad = htable_grad:float():cuda()
+    end
   else
     ctable_init, ctable_grad, htable_init, htable_grad = {}, {}, {}, {}
     for i = 1, self.num_layers do
@@ -34,6 +41,12 @@ function LSTM:__init(config)
       htable_init[i] = torch.zeros(self.mem_dim)
       ctable_grad[i] = torch.zeros(self.mem_dim)
       htable_grad[i] = torch.zeros(self.mem_dim)
+      if self.cuda then
+        ctable_init[i] = ctable_init[i]:float():cuda()
+        htable_init[i] = htable_init[i]:float():cuda()
+        ctable_grad[i] = ctable_grad[i]:float():cuda()
+        htable_grad[i] = htable_grad[i]:float():cuda()
+      end
     end
   end
   self.initial_values = {ctable_init, htable_init}
@@ -42,6 +55,9 @@ function LSTM:__init(config)
     ctable_grad,
     htable_grad
   }
+  if self.cuda then
+    self.gradInput[1] = self.gradInput[1]:float():cuda()
+  end
 end
 
 -- Instantiate a new LSTM cell.
@@ -91,6 +107,9 @@ function LSTM:new_cell()
   -- this avoids some quirks with nngraph involving tables of size 1.
   htable, ctable = nn.Identity()(htable), nn.Identity()(ctable)
   local cell = nn.gModule({input, ctable_p, htable_p}, {ctable, htable})
+  if self.cuda then
+    cell = cell:cuda()
+  end
 
   -- share parameters
   if self.master_cell then
@@ -146,6 +165,9 @@ function LSTM:backward(inputs, grad_outputs, reverse)
   end
 
   local input_grads = torch.Tensor(inputs:size())
+  if self.cuda then
+    input_grads = input_grads:float():cuda()
+  end
   for t = size, 1, -1 do
     local input = reverse and inputs[size - t + 1] or inputs[t]
     local grad_output = reverse and grad_outputs[size - t + 1] or grad_outputs[t]
