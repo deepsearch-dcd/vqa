@@ -3,7 +3,7 @@ if vqalstm==nil then
 end
 
 cmd = torch.CmdLine()
-cmd:log(paths.thisfile() .. os.date(' %Y-%m-%dT%H%M%S') ..'.log')
+cmd:log(paths.thisfile() .. os.date('-%Y-%m-%dT%H%M%S') ..'.log')
 
 function accuracy(pred, gold)
   return torch.eq(pred, gold):sum() / pred:size(1)
@@ -45,8 +45,6 @@ for i=1,testset.size do
 end
 
 if cuda then
-  --trainset.images = trainset.images:float():cuda()
-  --testset.images = testset.images:float():cuda()
   for i=1,trainset.size do
     trainset.questions[i] = trainset.questions[i]:float():cuda()
   end
@@ -90,6 +88,7 @@ model:print_config()
 local train_start = sys.clock()
 local best_dev_score = -1.0
 local best_dev_model = model
+local best_dev_epoch = 1
 header('Training model')
 for i = 1, num_epochs do
   local start = sys.clock()
@@ -123,12 +122,13 @@ for i = 1, num_epochs do
     }
     best_dev_model.params:copy(model.params)
     best_dev_model.emb.weight:copy(model.emb.weight)
+    best_dev_epoch = i
   end
 end
 print('finished training in '.. string.format("%.2fs", (sys.clock() - train_start)))
 
 ---------- Save model ----------
-local model_save_path = string.format("./done/vqalstm-%s.l%d.d%d.e%d.c%d-%s.t7", args.model, args.layers, args.dim, args.epochs, args.cuda and 1 or 0, os.date('%Y-%m-%dT%H%M%S'))
+local model_save_path = string.format("./done/vqalstm-%s.l%d.d%d.e%d.c%d-%s.t7", args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, os.date('%Y-%m-%dT%H%M%S'))
 
 -- write model to disk
 print('writing model to ' .. model_save_path)
