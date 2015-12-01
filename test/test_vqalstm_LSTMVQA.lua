@@ -3,18 +3,30 @@ if vqalstm==nil then
 end
 
 cmd = torch.CmdLine()
-cmd:log(paths.thisfile() ..'.log')
+cmd:log(paths.thisfile() .. os.date(' %Y-%m-%dT%H%M%S') ..'.log')
 
 function accuracy(pred, gold)
   return torch.eq(pred, gold):sum() / pred:size(1)
 end
 
+-- read command line arguments
+local args = lapp [[
+Training script for sentiment classification on the SST dataset.
+  -m,--model  (default lstm)    Model architecture: [lstm, bilstm]
+  -l,--layers (default 1)       Number of layers (ignored for Tree-LSTM)
+  -d,--dim    (default 150)     LSTM memory dimension
+  -e,--epochs (default 50)      Number of training epochs
+  -c,--cuda   (default true)    Using cuda
+]]
+
+--[[
 local args = {}
 args.model = 'lstm'
 args.layers = 1
 args.dim = 150
 args.epochs = 50
 args.cuda = true
+--]]
 local vocab_size = 10000
 local emb_dim = 50
 local model_class, model_structure = vqalstm.LSTMVQA, args.model
@@ -45,6 +57,16 @@ end
 
 print('num train = '.. trainset.size)
 print('num test  = '.. testset.size)
+
+---------- load features ----------
+print('loading features')
+feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
+if cuda then
+  feas = feas:float():cuda()
+end
+trainset.imagefeas = feas
+testset.imagefeas = feas
+
 ---------- load wordvec ----------
 local vecs = torch.rand(vocab_size, emb_dim)
 
@@ -55,12 +77,13 @@ local model = model_class{
   num_layers = args.layers,
   mem_dim = args.dim,
   num_classes = trainset.nanswer,
-  cuda = args.cuda
+  cuda = args.cuda,
+  im_fea_dim = args.im_fea_dim
 }
 
 ---------- print information ----------
 header('model configuration')
-print('max epochs = '.. num_epochs)
+print(string.format('%-25s = %d',   'max epochs', num_epochs))
 model:print_config()
 
 ---------- TRAIN ----------
@@ -95,10 +118,21 @@ for i = 1, num_epochs do
       num_layers = args.layers,
       mem_dim = args.dim,
       num_classes = trainset.nanswer,
-      cuda = args.cuda
+      cuda = args.cuda,
+      im_fea_dim = args.im_fea_dim
     }
     best_dev_model.params:copy(model.params)
     best_dev_model.emb.weight:copy(model.emb.weight)
   end
 end
 print('finished training in '.. string.format("%.2fs", (sys.clock() - train_start)))
+
+---------- Save model ----------
+local model_save_path = string.format("./done/vqalstm-%s.l%d.d%d.e%d.c%d-%s.t7", args.model, args.layers, args.dim, args.epochs, args.cuda and 1 or 0, os.date('%Y-%m-%dT%H%M%S'))
+
+-- write model to disk
+print('writing model to ' .. model_save_path)
+best_dev_model:save(model_save_path)
+
+-- to load a saved model
+--local loaded_model = model_class.load(model_save_path)

@@ -24,7 +24,7 @@ include('model/LSTMVQA.lua')
 --include('sentiment/LSTMSentiment.lua')
 --include('sentiment/TreeLSTMSentiment.lua')
 
-printf = utils.printf
+--printf = utils.printf
 
 -- global paths (modify if desired)
 --vqalstm.data_dir        = 'data'

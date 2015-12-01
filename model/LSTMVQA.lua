@@ -17,6 +17,7 @@ function LSTMVQA:__init(config)
   self.dropout           = (config.dropout == nil) and true or config.dropout
   self.num_classes       = config.num_classes
   self.cuda              = config.cuda              or false
+  self.im_fea_dim        = config.im_fea_dim        or 1000
   assert(self.num_classes~=nil)
 
   -- word embedding
@@ -35,16 +36,23 @@ function LSTMVQA:__init(config)
   -- vqa classification module
   self.vqa_module = self:new_vqa_module()
 
+  -- transfer image
+  self.im_trans_dim = self.emb_dim
+  self.imtrans_module = nn.Linear(self.im_fea_dim, self.im_trans_dim)
+  self.jointable2 = nn.JoinTable(2)
+
   if self.cuda then
     self.emb = self.emb:cuda()
     self.in_zeros = self.in_zeros:float():cuda()
     self.criterion = self.criterion:cuda()
     self.vqa_module = self.vqa_module:cuda()
+    self.imtrans_module = self.imtrans_module:cuda()
+    self.jointable2 = self.jointable2:cuda()
   end
 
   -- initialize LSTM model
   local lstm_config = {
-    in_dim = self.emb_dim,
+    in_dim = self.emb_dim+self.im_trans_dim,
     mem_dim = self.mem_dim,
     num_layers = self.num_layers,
     gate_output = true,
@@ -61,6 +69,7 @@ function LSTMVQA:__init(config)
   end
 
   local modules = nn.Parallel()
+    :add(self.imtrans_module)
     :add(self.lstm)
     :add(self.vqa_module)
 
@@ -135,9 +144,12 @@ function LSTMVQA:train(dataset)
         local ques = dataset.questions[idx] -- question word indicies
         local ans = dataset.answers[idx]
         local img = dataset.images[idx]
+        local imgfea = dataset.imagefeas[img]
 
         -------------------- FORWARD --------------------
         local inputs = self.emb:forward(ques) -- question word vectors
+        local imtrans = self.imtrans_module:forward(imgfea)
+        inputs = self.jointable2:forward{inputs, torch.repeatTensor(imtrans,inputs:size(1),1)}
 
         -- get sentence representations
         local rep -- htables
@@ -166,7 +178,12 @@ function LSTMVQA:train(dataset)
         elseif self.structure == 'bilstm' then
           input_grads = self:BiLSTM_backward(ques, inputs, rep_grad)
         end
-        self.emb:backward(ques, input_grads)
+        local firstInput = input_grads:narrow(2,1,self.emb_dim):clone()
+        self.emb:backward(ques, firstInput)
+        local secondInput = input_grads:narrow(2,self.emb_dim+1,self.im_trans_dim):clone()
+        for ii=1,secondInput:size(1) do
+          self.imtrans_module:backward(imgfea, secondInput[ii])
+        end
       end
 
       loss = loss / batch_size
@@ -237,10 +254,12 @@ function LSTMVQA:BiLSTM_backward(ques, inputs, rep_grad)
 end
 
 -- Predict the vqa of a sentence.
-function LSTMVQA:predict(ques)
+function LSTMVQA:predict(ques, imgfea)
   self.lstm:evaluate()
   self.vqa_module:evaluate()
   local inputs = self.emb:forward(ques)
+  local imtrans = self.imtrans_module:forward(imgfea)
+  inputs = self.jointable2:forward{inputs, torch.repeatTensor(imtrans,inputs:size(1),1)}
 
   local rep
   if self.structure == 'lstm' then
@@ -266,7 +285,7 @@ function LSTMVQA:predict_dataset(dataset)
   local predictions = torch.Tensor(dataset.size)
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
-    predictions[i] = self:predict(dataset.questions[i])
+    predictions[i] = self:predict(dataset.questions[i], dataset.imagefeas[dataset.images[i]])
   end
   return predictions
 end
@@ -297,6 +316,8 @@ function LSTMVQA:print_config()
   print(string.format('%-25s = %.2e', 'learning rate', self.learning_rate))
   print(string.format('%-25s = %.2e', 'word vector learning rate', self.emb_learning_rate))
   print(string.format('%-25s = %s',   'dropout', tostring(self.dropout)))
+  print(string.format('%-25s = %s',   'cuda', tostring(self.cuda)))
+  print(string.format('%-25s = %s',   'image feature dim', self.im_fea_dim))
 end
 
 --
@@ -307,6 +328,7 @@ function LSTMVQA:save(path)
   local config = {
     batch_size        = self.batch_size,
     dropout           = self.dropout,
+    cuda              = self.cuda,
     emb_learning_rate = self.emb_learning_rate,
     emb_vecs          = self.emb.weight:float(),
     learning_rate     = self.learning_rate,
@@ -314,6 +336,7 @@ function LSTMVQA:save(path)
     mem_dim           = self.mem_dim,
     reg               = self.reg,
     structure         = self.structure,
+    im_fea_dim        = self.im_fea_dim
   }
 
   torch.save(path, {
