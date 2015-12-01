@@ -17,6 +17,7 @@ vqalstm = {}
 --include('layers/CRowAddTable.lua')
 include('module/fLSTM.lua')
 include('model/LSTMVQA.lua')
+include('model/LSTMVQATO.lua')
 --include('model/ChildSumTreeLSTM.lua')
 --include('model/BinaryTreeLSTM.lua')
 --include('relatedness/LSTMSim.lua')
@@ -24,7 +25,7 @@ include('model/LSTMVQA.lua')
 --include('sentiment/LSTMSentiment.lua')
 --include('sentiment/TreeLSTMSentiment.lua')
 
-printf = utils.printf
+--printf = utils.printf
 
 -- global paths (modify if desired)
 --vqalstm.data_dir        = 'data'

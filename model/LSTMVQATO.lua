@@ -4,9 +4,9 @@
 
 --]]
 
-local LSTMVQA = torch.class('vqalstm.LSTMVQA')
+local LSTMVQATO, parent = torch.class('vqalstm.LSTMVQATO', 'vqalstm.LSTMVQA')
 
-function LSTMVQA:__init(config)
+function LSTMVQATO:__init(config)
   self.mem_dim           = config.mem_dim           or 150
   self.learning_rate     = config.learning_rate     or 0.05
   self.emb_learning_rate = config.emb_learning_rate or 0.1
@@ -17,7 +17,6 @@ function LSTMVQA:__init(config)
   self.dropout           = (config.dropout == nil) and true or config.dropout
   self.num_classes       = config.num_classes
   self.cuda              = config.cuda              or false
-  self.im_fea_dim        = config.im_fea_dim        or 1000
   assert(self.num_classes~=nil)
 
   -- word embedding
@@ -36,23 +35,16 @@ function LSTMVQA:__init(config)
   -- vqa classification module
   self.vqa_module = self:new_vqa_module()
 
-  -- transfer image
-  self.im_trans_dim = self.emb_dim
-  self.imtrans_module = nn.Linear(self.im_fea_dim, self.im_trans_dim)
-  self.jointable2 = nn.JoinTable(2)
-
   if self.cuda then
     self.emb = self.emb:cuda()
     self.in_zeros = self.in_zeros:float():cuda()
     self.criterion = self.criterion:cuda()
     self.vqa_module = self.vqa_module:cuda()
-    self.imtrans_module = self.imtrans_module:cuda()
-    self.jointable2 = self.jointable2:cuda()
   end
 
   -- initialize LSTM model
   local lstm_config = {
-    in_dim = self.emb_dim+self.im_trans_dim,
+    in_dim = self.emb_dim,
     mem_dim = self.mem_dim,
     num_layers = self.num_layers,
     gate_output = true,
@@ -69,7 +61,6 @@ function LSTMVQA:__init(config)
   end
 
   local modules = nn.Parallel()
-    :add(self.imtrans_module)
     :add(self.lstm)
     :add(self.vqa_module)
 
@@ -86,42 +77,11 @@ function LSTMVQA:__init(config)
   end
 end
 
-function LSTMVQA:new_vqa_module()
-  local input_dim = self.num_layers * self.mem_dim
-  local inputs, vec
-  if self.structure == 'lstm' then
-    local rep = nn.Identity()()
-    if self.num_layers == 1 then
-      vec = {rep}
-    else
-      vec = nn.JoinTable(1)(rep)
-    end
-    inputs = {rep}
-  elseif self.structure == 'bilstm' then
-    local frep, brep = nn.Identity()(), nn.Identity()()
-    input_dim = input_dim * 2
-    if self.num_layers == 1 then
-      vec = nn.JoinTable(1){frep, brep}
-    else
-      vec = nn.JoinTable(1){nn.JoinTable(1)(frep), nn.JoinTable(1)(brep)}
-    end
-    inputs = {frep, brep}
-  end
-
-  local logprobs
-  if self.dropout then
-    logprobs = nn.LogSoftMax()(
-      nn.Linear(input_dim, self.num_classes)(
-        nn.Dropout()(vec)))
-  else
-    logprobs = nn.LogSoftMax()(
-      nn.Linear(input_dim, self.num_classes)(vec))
-  end
-
-  return nn.gModule(inputs, {logprobs})
+function LSTMVQATO:new_vqa_module()
+  return parent.new_vqa_module(self)
 end
 
-function LSTMVQA:train(dataset)
+function LSTMVQATO:train(dataset)
   self.lstm:training()
   self.vqa_module:training()
   if self.structure == 'bilstm' then
@@ -137,20 +97,15 @@ function LSTMVQA:train(dataset)
     local feval = function(x)
       self.grad_params:zero()
       self.emb:zeroGradParameters()
-      self.imtrans_module:zeroGradParameters()
 
       local loss = 0
       for j = 1, batch_size do
         local idx = indices[i + j - 1]
         local ques = dataset.questions[idx] -- question word indicies
         local ans = dataset.answers[idx]
-        local img = dataset.images[idx]
-        local imgfea = dataset.imagefeas[img]
 
         -------------------- FORWARD --------------------
         local inputs = self.emb:forward(ques) -- question word vectors
-        local imtrans = self.imtrans_module:forward(imgfea)
-        inputs = self.jointable2:forward{inputs, torch.repeatTensor(imtrans,inputs:size(1),1)}
 
         -- get sentence representations
         local rep -- htables
@@ -179,18 +134,12 @@ function LSTMVQA:train(dataset)
         elseif self.structure == 'bilstm' then
           input_grads = self:BiLSTM_backward(ques, inputs, rep_grad)
         end
-        local firstInput = input_grads:narrow(2,1,self.emb_dim):clone()
-        self.emb:backward(ques, firstInput)
-        local secondInput = input_grads:narrow(2,self.emb_dim+1,self.im_trans_dim):clone()
-        for ii=1,secondInput:size(1) do
-          self.imtrans_module:backward(imgfea, secondInput[ii])
-        end
+        self.emb:backward(ques, input_grads)
       end
 
       loss = loss / batch_size
       self.grad_params:div(batch_size)
       self.emb.gradWeight:div(batch_size)
-      self.imtrans_module.gradWeight:div(batch_size)
 
       -- regularization
       loss = loss + 0.5 * self.reg * self.params:norm() ^ 2
@@ -200,69 +149,25 @@ function LSTMVQA:train(dataset)
 
     optim.adagrad(feval, self.params, self.optim_state)
     self.emb:updateParameters(self.emb_learning_rate)
-    self.imtrans_module:updateParameters(self.emb_learning_rate)
   end
   xlua.progress(dataset.size, dataset.size)
 end
 
 -- LSTM backward propagation
-function LSTMVQA:LSTM_backward(ques, inputs, rep_grad)
-  local grad
-  if self.num_layers == 1 then
-    grad = torch.zeros(ques:nElement(), self.mem_dim)
-    if self.cuda then
-      grad = grad:float():cuda()
-    end
-    grad[ques:nElement()] = rep_grad
-  else
-    grad = torch.zeros(ques:nElement(), self.num_layers, self.mem_dim)
-    if self.cuda then
-      grad = grad:float():cuda()
-    end
-    for l = 1, self.num_layers do
-      grad[{ques:nElement(), l, {}}] = rep_grad[l]
-    end
-  end
-  local input_grads = self.lstm:backward(inputs, grad)
-  return input_grads
+function LSTMVQATO:LSTM_backward(ques, inputs, rep_grad)
+  return parent.LSTM_backward(self, ques, inputs, rep_grad)
 end
 
 -- Bidirectional LSTM backward propagation
-function LSTMVQA:BiLSTM_backward(ques, inputs, rep_grad)
-  local grad, grad_b
-  if self.num_layers == 1 then
-    grad   = torch.zeros(ques:nElement(), self.mem_dim)
-    grad_b = torch.zeros(ques:nElement(), self.mem_dim)
-    if self.cuda then
-      grad = grad:float():cuda()
-      grad_b = grad_b:float():cuda()
-    end
-    grad[ques:nElement()] = rep_grad[1]
-    grad_b[1] = rep_grad[2]
-  else
-    grad   = torch.zeros(ques:nElement(), self.num_layers, self.mem_dim)
-    grad_b = torch.zeros(ques:nElement(), self.num_layers, self.mem_dim)
-    if self.cuda then
-      grad = grad:float():cuda()
-      grad_b = grad_b:float():cuda()
-    end
-    for l = 1, self.num_layers do
-      grad[{ques:nElement(), l, {}}] = rep_grad[1][l]
-      grad_b[{1, l, {}}] = rep_grad[2][l]
-    end
-  end
-  local input_grads = self.lstm:backward(inputs, grad)
-  local input_grads_b = self.lstm_b:backward(inputs, grad_b, true)
-  return input_grads + input_grads_b
+function LSTMVQATO:BiLSTM_backward(ques, inputs, rep_grad)
+  return parent.BiLSTM_backward(self, ques, inputs, rep_grad)
 end
 
 -- Predict the vqa of a sentence.
-function LSTMVQA:predict(ques, imgfea)
+function LSTMVQATO:predict(ques)
   self.lstm:evaluate()
   self.vqa_module:evaluate()
   local inputs = self.emb:forward(ques)
-  local imtrans = self.imtrans_module:forward(imgfea)
-  inputs = self.jointable2:forward{inputs, torch.repeatTensor(imtrans,inputs:size(1),1)}
 
   local rep
   if self.structure == 'lstm' then
@@ -284,11 +189,11 @@ function LSTMVQA:predict(ques, imgfea)
 end
 
 -- Produce vqa predictions for each sentence in the dataset.
-function LSTMVQA:predict_dataset(dataset)
+function LSTMVQATO:predict_dataset(dataset)
   local predictions = torch.Tensor(dataset.size)
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
-    predictions[i] = self:predict(dataset.questions[i], dataset.imagefeas[dataset.images[i]])
+    predictions[i] = self:predict(dataset.questions[i])
   end
   return predictions
 end
@@ -305,7 +210,7 @@ function argmax(v)
   return idx
 end
 
-function LSTMVQA:print_config()
+function LSTMVQATO:print_config()
   local num_params = self.params:size(1)
   local num_vqa_params = self:new_vqa_module():getParameters():size(1)
   print(string.format('%-25s = %d',   'num params', num_params))
@@ -320,14 +225,13 @@ function LSTMVQA:print_config()
   print(string.format('%-25s = %.2e', 'word vector learning rate', self.emb_learning_rate))
   print(string.format('%-25s = %s',   'dropout', tostring(self.dropout)))
   print(string.format('%-25s = %s',   'cuda', tostring(self.cuda)))
-  print(string.format('%-25s = %s',   'image feature dim', self.im_fea_dim))
 end
 
 --
 -- Serialization
 --
 
-function LSTMVQA:save(path)
+function LSTMVQATO:save(path)
   local config = {
     batch_size        = self.batch_size,
     dropout           = self.dropout,
@@ -339,7 +243,6 @@ function LSTMVQA:save(path)
     mem_dim           = self.mem_dim,
     reg               = self.reg,
     structure         = self.structure,
-    im_fea_dim        = self.im_fea_dim
   }
 
   torch.save(path, {
@@ -348,9 +251,9 @@ function LSTMVQA:save(path)
   })
 end
 
-function LSTMVQA.load(path)
+function LSTMVQATO.load(path)
   local state = torch.load(path)
-  local model = vqalstm.LSTMVQA.new(state.config)
+  local model = vqalstm.LSTMVQATO.new(state.config)
   model.params:copy(state.params)
   return model
 end
