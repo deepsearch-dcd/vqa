@@ -13,7 +13,7 @@ function LSTMVQATO:__init(config)
   self.num_layers        = config.num_layers        or 1
   self.batch_size        = config.batch_size        or 1 -- train per 1 sample
   self.reg               = config.reg               or 1e-4
-  self.structure         = config.structure         or 'lstm' -- {lstm, bilstm}
+  self.structure         = config.structure         or 'lstm' -- {lstm, bilstm, rnn}
   self.dropout           = (config.dropout == nil) and true or config.dropout
   self.num_classes       = config.num_classes
   self.cuda              = config.cuda              or false
@@ -56,6 +56,8 @@ function LSTMVQATO:__init(config)
   elseif self.structure == 'bilstm' then
     self.lstm = vqalstm.LSTM(lstm_config)
     self.lstm_b = vqalstm.LSTM(lstm_config)
+  elseif self.structure == 'rnn' then
+    self.lstm = vqalstm.RNN(lstm_config)
   else
     error('invalid LSTM type: ' .. self.structure)
   end
@@ -109,7 +111,7 @@ function LSTMVQATO:train(dataset)
 
         -- get sentence representations
         local rep -- htables
-        if self.structure == 'lstm' then
+        if self.structure == 'lstm' or self.structure == 'rnn' then
           rep = self.lstm:forward(inputs)
         elseif self.structure == 'bilstm' then
           rep = {
@@ -129,7 +131,7 @@ function LSTMVQATO:train(dataset)
         local obj_grad = self.criterion:backward(output, ans)
         local rep_grad = self.vqa_module:backward(rep, obj_grad)
         local input_grads
-        if self.structure == 'lstm' then
+        if self.structure == 'lstm' or self.structure == 'rnn' then
           input_grads = self:LSTM_backward(ques, inputs, rep_grad)
         elseif self.structure == 'bilstm' then
           input_grads = self:BiLSTM_backward(ques, inputs, rep_grad)
@@ -170,7 +172,7 @@ function LSTMVQATO:predict(ques)
   local inputs = self.emb:forward(ques)
 
   local rep
-  if self.structure == 'lstm' then
+  if self.structure == 'lstm' or self.structure == 'rnn' then
     rep = self.lstm:forward(inputs)
   elseif self.structure == 'bilstm' then
     self.lstm_b:evaluate()

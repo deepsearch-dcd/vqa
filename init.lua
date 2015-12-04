@@ -11,19 +11,10 @@ npy4th = require 'npy4th'
 
 vqalstm = {}
 
---include('util/read_data.lua')
---include('util/Tree.lua')
---include('util/Vocab.lua')
---include('layers/CRowAddTable.lua')
 include('module/fLSTM.lua')
+include('module/fRNN.lua')
 include('model/LSTMVQA.lua')
 include('model/LSTMVQATO.lua')
---include('model/ChildSumTreeLSTM.lua')
---include('model/BinaryTreeLSTM.lua')
---include('relatedness/LSTMSim.lua')
---include('relatedness/TreeLSTMSim.lua')
---include('sentiment/LSTMSentiment.lua')
---include('sentiment/TreeLSTMSentiment.lua')
 
 --printf = utils.printf
 

@@ -13,7 +13,7 @@ function LSTMVQA:__init(config)
   self.num_layers        = config.num_layers        or 1
   self.batch_size        = config.batch_size        or 1 -- train per 1 sample
   self.reg               = config.reg               or 1e-4
-  self.structure         = config.structure         or 'lstm' -- {lstm, bilstm}
+  self.structure         = config.structure         or 'lstm' -- {lstm, bilstm, rnn}
   self.dropout           = (config.dropout == nil) and true or config.dropout
   self.num_classes       = config.num_classes
   self.cuda              = config.cuda              or false
@@ -64,6 +64,8 @@ function LSTMVQA:__init(config)
   elseif self.structure == 'bilstm' then
     self.lstm = vqalstm.LSTM(lstm_config)
     self.lstm_b = vqalstm.LSTM(lstm_config)
+  elseif self.structure == 'rnn' then
+    self.lstm = vqalstm.RNN(lstm_config)
   else
     error('invalid LSTM type: ' .. self.structure)
   end
@@ -89,7 +91,7 @@ end
 function LSTMVQA:new_vqa_module()
   local input_dim = self.num_layers * self.mem_dim
   local inputs, vec
-  if self.structure == 'lstm' then
+  if self.structure == 'lstm' or self.structure == 'rnn' then
     local rep = nn.Identity()()
     if self.num_layers == 1 then
       vec = {rep}
@@ -154,7 +156,7 @@ function LSTMVQA:train(dataset)
 
         -- get sentence representations
         local rep -- htables
-        if self.structure == 'lstm' then
+        if self.structure == 'lstm' or self.structure == 'rnn' then
           rep = self.lstm:forward(inputs)
         elseif self.structure == 'bilstm' then
           rep = {
@@ -174,7 +176,7 @@ function LSTMVQA:train(dataset)
         local obj_grad = self.criterion:backward(output, ans)
         local rep_grad = self.vqa_module:backward(rep, obj_grad)
         local input_grads
-        if self.structure == 'lstm' then
+        if self.structure == 'lstm' or self.structure == 'rnn' then
           input_grads = self:LSTM_backward(ques, inputs, rep_grad)
         elseif self.structure == 'bilstm' then
           input_grads = self:BiLSTM_backward(ques, inputs, rep_grad)
@@ -265,7 +267,7 @@ function LSTMVQA:predict(ques, imgfea)
   inputs = self.jointable2:forward{inputs, torch.repeatTensor(imtrans,inputs:size(1),1)}
 
   local rep
-  if self.structure == 'lstm' then
+  if self.structure == 'lstm' or self.structure == 'rnn' then
     rep = self.lstm:forward(inputs)
   elseif self.structure == 'bilstm' then
     self.lstm_b:evaluate()
