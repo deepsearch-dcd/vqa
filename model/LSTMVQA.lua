@@ -341,7 +341,8 @@ function LSTMVQA:save(path)
     mem_dim           = self.mem_dim,
     reg               = self.reg,
     structure         = self.structure,
-    im_fea_dim        = self.im_fea_dim
+    im_fea_dim        = self.im_fea_dim,
+    num_classes       = self.num_classes
   }
 
   torch.save(path, {
@@ -352,6 +353,7 @@ end
 
 function LSTMVQA.load(path)
   local state = torch.load(path)
+  --state.config.num_classes = 969--trick
   local model = vqalstm.LSTMVQA.new(state.config)
   model.params:copy(state.params)
   return model

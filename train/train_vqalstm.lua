@@ -19,7 +19,6 @@ cmd:option('-epochs',50,'Number of training epochs')
 cmd:option('-cuda',false,'Using cuda')
 cmd:option('-textonly',false,'Text only')
 cmd:text()
-cmd:log(paths.thisfile() .. os.date('-%Y-%m-%dT%H%M%S') ..'.log')
 local args = cmd:parse(arg)
 
 --[[
@@ -39,9 +38,11 @@ local cuda = args.cuda
 local textonly = args.textonly
 local model_class
 if textonly then
+  cmd:log(paths.thisfile() .. os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log')
   model_class = vqalstm.LSTMVQATO
   header('LSTM for VQA with text only')
 else
+  cmd:log(paths.thisfile() .. os.date('-%Y-%m-%dT%H%M%S') ..'.log')
   model_class = vqalstm.LSTMVQA
   header('LSTM for VQA')
 end
