@@ -46,7 +46,7 @@ end
 -- pt: [str] define which part of `str` will be reserve.
 -- skip: [boolean] if true, will skip the blank part. *default* is true.
 local function split(str, pt, skip)
-        skip = skip or true
+        skip = (skip==nil) or skip
         local ret = {}
         if skip then
                 for chunk in string.gfind(str, pt) do
@@ -63,7 +63,7 @@ local function split(str, pt, skip)
 end
 
 function util.split_line(str, skip)
-        return split(str, '(.-)\n', skip or true)
+        return split(str, '(.-)\n', (skip==nil) or skip)
 end
 
 function util.split_word(str)

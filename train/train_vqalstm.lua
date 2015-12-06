@@ -2,22 +2,24 @@ if vqalstm==nil then
   require('..')
 end
 
-cmd = torch.CmdLine()
-cmd:log(paths.thisfile() .. os.date('-%Y-%m-%dT%H%M%S') ..'.log')
-
 function accuracy(pred, gold)
   return torch.eq(pred, gold):sum() / pred:size(1)
 end
 
 -- read command line arguments
-local args = lapp [[
-Training script for sentiment classification on the SST dataset.
-  -m,--model  (default lstm)    Model architecture: [lstm, bilstm]
-  -l,--layers (default 1)       Number of layers (ignored for Tree-LSTM)
-  -d,--dim    (default 150)     LSTM memory dimension
-  -e,--epochs (default 50)      Number of training epochs
-  -c,--cuda   (default true)    Using cuda
-]]
+local cmd = torch.CmdLine()
+cmd:text()
+cmd:text('Training script for VQA on the DAQUAR dataset.')
+cmd:text()
+cmd:text('Options')
+cmd:option('-model','lstm','Model architecture: [lstm, bilstm, rlstm, rnn, rnnsu]')
+cmd:option('-layers',1,'Number of layers (ignored for Tree-LSTM)')
+cmd:option('-dim',150,'LSTM memory dimension')
+cmd:option('-epochs',50,'Number of training epochs')
+cmd:option('-cuda',false,'Using cuda')
+cmd:option('-textonly',false,'Text only')
+cmd:text()
+local args = cmd:parse(arg)
 
 --[[
 local args = {}
@@ -26,13 +28,22 @@ args.layers = 1
 args.dim = 150
 args.epochs = 50
 args.cuda = true
+args.textonly = true
 --]]
 local vocab_size = 10000
 local emb_dim = 50
-local model_class, model_structure = vqalstm.LSTMVQA, args.model
+local model_structure = args.model
 local num_epochs = args.epochs
 local cuda = args.cuda
-header('LSTM for VQA')
+local textonly = args.textonly
+local model_class = vqalstm.LSTMVQA
+if textonly then
+  cmd:log(paths.thisfile() ..'-'.. model_structure .. os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log')
+  header('LSTM for VQA with text only')
+else
+  cmd:log(paths.thisfile() ..'-'.. model_structure .. os.date('-%Y-%m-%dT%H%M%S') ..'.log')
+  header('LSTM for VQA')
+end
 
 ---------- load dataset ----------
 print('loading datasets')
@@ -57,14 +68,15 @@ print('num train = '.. trainset.size)
 print('num test  = '.. testset.size)
 
 ---------- load features ----------
-print('loading features')
-feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
-if cuda then
-  feas = feas:float():cuda()
+if not textonly then
+  print('loading features')
+  feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
+  if cuda then
+    feas = feas:float():cuda()
+  end
+  trainset.imagefeas = feas
+  testset.imagefeas = feas
 end
-trainset.imagefeas = feas
-testset.imagefeas = feas
-
 ---------- load wordvec ----------
 local vecs = torch.rand(vocab_size, emb_dim)
 
@@ -76,7 +88,8 @@ local model = model_class{
   mem_dim = args.dim,
   num_classes = trainset.nanswer,
   cuda = args.cuda,
-  im_fea_dim = args.im_fea_dim
+  im_fea_dim = args.im_fea_dim,
+  textonly = textonly
 }
 
 ---------- print information ----------
@@ -118,7 +131,8 @@ for i = 1, num_epochs do
       mem_dim = args.dim,
       num_classes = trainset.nanswer,
       cuda = args.cuda,
-      im_fea_dim = args.im_fea_dim
+      im_fea_dim = args.im_fea_dim,
+      textonly = textonly
     }
     best_dev_model.params:copy(model.params)
     best_dev_model.emb.weight:copy(model.emb.weight)
@@ -126,9 +140,19 @@ for i = 1, num_epochs do
   end
 end
 print('finished training in '.. string.format("%.2fs", (sys.clock() - train_start)))
+print('best dev score is: '.. best_dev_score)
 
 ---------- Save model ----------
-local model_save_path = string.format("./done/vqalstm-%s.l%d.d%d.e%d.c%d-%s.t7", args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, os.date('%Y-%m-%dT%H%M%S'))
+local model_save_path
+if textonly then
+  model_save_path = string.format("./done/vqalstm-%s_textonly.l%d.d%d.e%d.c%d-%s.t7", 
+    args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
+    os.date('%Y-%m-%dT%H%M%S'))
+else
+  model_save_path = string.format("./done/vqalstm-%s.l%d.d%d.e%d.c%d-%s.t7", 
+    args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
+    os.date('%Y-%m-%dT%H%M%S'))
+end
 
 -- write model to disk
 print('writing model to ' .. model_save_path)
