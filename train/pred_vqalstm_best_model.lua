@@ -12,24 +12,28 @@ cmd:text()
 cmd:text('Training script for VQA on the DAQUAR dataset.')
 cmd:text()
 cmd:text('Options')
-cmd:option('-mpath','done/vqalstm_textonly-rnn.l1.d150.e37.c1-2015-12-04T081911.t7','Model path')
+cmd:option('-mpath','done/vqalstm-rnn_textonly.l1.d150.e37.c1-2015-12-04T081911.t7','Model path')
+cmd:option('-testnum',20,'Test sample number')
 cmd:text()
 local args = cmd:parse(arg)
 
 ---------- Load model ----------
+local testnum = args.testnum
 local model_save_path = args.mpath
 local cuda = string.find(model_save_path, 'c1') and true or false
 local textonly = string.find(model_save_path, 'textonly') and true or false
-local model_class
+local model_class = vqalstm.LSTMVQA
 if textonly then
-  model_class = vqalstm.LSTMVQATO
   header('LSTM for VQA with text only')
 else
-  model_class = vqalstm.LSTMVQA
   header('LSTM for VQA')
 end
 
 local model = model_class.load(model_save_path)
+
+-- write model to disk
+--print('writing model to ' .. model_save_path)
+--model:save(model_save_path)
 
 ---------- load dataset ----------
 print('loading datasets')
@@ -81,7 +85,6 @@ local dev_score = accuracy(dev_predictions, testset.answers)
 print('-- test score: '.. dev_score ..', cost '.. string.format("%.2fs", (sys.clock() - start)))
 
 ---------- Print Samples ----------
-local testnum = 20
 print('===== Training Samples =====')
 for k=1,testnum do
   local i = math.random(trainset.size)

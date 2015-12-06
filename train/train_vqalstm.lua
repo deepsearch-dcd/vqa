@@ -12,7 +12,7 @@ cmd:text()
 cmd:text('Training script for VQA on the DAQUAR dataset.')
 cmd:text()
 cmd:text('Options')
-cmd:option('-model','lstm','Model architecture: [lstm, bilstm, rnn]')
+cmd:option('-model','lstm','Model architecture: [lstm, bilstm, rlstm, rnn, rnnsu]')
 cmd:option('-layers',1,'Number of layers (ignored for Tree-LSTM)')
 cmd:option('-dim',150,'LSTM memory dimension')
 cmd:option('-epochs',50,'Number of training epochs')
@@ -36,14 +36,12 @@ local model_structure = args.model
 local num_epochs = args.epochs
 local cuda = args.cuda
 local textonly = args.textonly
-local model_class
+local model_class = vqalstm.LSTMVQA
 if textonly then
-  cmd:log(paths.thisfile() .. os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log')
-  model_class = vqalstm.LSTMVQATO
+  cmd:log(paths.thisfile() ..'-'.. model_structure .. os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log')
   header('LSTM for VQA with text only')
 else
-  cmd:log(paths.thisfile() .. os.date('-%Y-%m-%dT%H%M%S') ..'.log')
-  model_class = vqalstm.LSTMVQA
+  cmd:log(paths.thisfile() ..'-'.. model_structure .. os.date('-%Y-%m-%dT%H%M%S') ..'.log')
   header('LSTM for VQA')
 end
 
@@ -90,7 +88,8 @@ local model = model_class{
   mem_dim = args.dim,
   num_classes = trainset.nanswer,
   cuda = args.cuda,
-  im_fea_dim = args.im_fea_dim
+  im_fea_dim = args.im_fea_dim,
+  textonly = textonly
 }
 
 ---------- print information ----------
@@ -132,7 +131,8 @@ for i = 1, num_epochs do
       mem_dim = args.dim,
       num_classes = trainset.nanswer,
       cuda = args.cuda,
-      im_fea_dim = args.im_fea_dim
+      im_fea_dim = args.im_fea_dim,
+      textonly = textonly
     }
     best_dev_model.params:copy(model.params)
     best_dev_model.emb.weight:copy(model.emb.weight)
@@ -145,7 +145,7 @@ print('best dev score is: '.. best_dev_score)
 ---------- Save model ----------
 local model_save_path
 if textonly then
-  model_save_path = string.format("./done/vqalstm_textonly-%s.l%d.d%d.e%d.c%d-%s.t7", 
+  model_save_path = string.format("./done/vqalstm-%s_textonly.l%d.d%d.e%d.c%d-%s.t7", 
     args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
     os.date('%Y-%m-%dT%H%M%S'))
 else

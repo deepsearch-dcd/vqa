@@ -13,8 +13,8 @@ vqalstm = {}
 
 include('module/fLSTM.lua')
 include('module/fRNN.lua')
+include('module/fRNNSU.lua')
 include('model/LSTMVQA.lua')
-include('model/LSTMVQATO.lua')
 
 --printf = utils.printf
 

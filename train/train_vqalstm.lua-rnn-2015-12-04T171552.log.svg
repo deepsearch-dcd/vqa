@@ -174,7 +174,7 @@
 		<text>epoch</text>
 	</g>
 	<g transform="translate(327.6,31.6)" style="stroke:none; fill:black; font-family:Arial; font-size:12.00pt; text-anchor:middle">
-		<text>train/train_vqalstm.lua-2015-12-04T171552.log</text>
+		<text>train/train_vqalstm.lua-rnn-2015-12-04T171552.log</text>
 	</g>
 </g>
 	<g id="gnuplot_plot_1" ><title>gnuplot_plot_1</title>
