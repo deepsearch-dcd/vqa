@@ -18,10 +18,11 @@ testset.images = util.assemble(testset.images, features)
 local criterion = nn.ClassNLLCriterion()
 
 local opt = {
-    batch_size = 4,
+    batch_size = 32,
     display_interval = 500,
     gpuid = 0,
     plot_dir = 'done/cnn_cnn',
     tag = 'apple',
+    log_dir = 'done/cnn_cnn',
 }
 train(opt, model, criterion, trainset, testset)

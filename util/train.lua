@@ -5,27 +5,33 @@ require 'util/Plotter'
 local util = require 'util/util'
 
 -- wrap a batch view to dataset
-function batch_view(dataset, batch_size, use_cuda)
+function batch_view(dataset, batch_size, use_cuda, blind)
     local new_dataset = {
-        images={}, 
         questions={}, 
         answers={},
-        nimage = dataset.nimage,
         nvocab = dataset.nvocab,
         nanswer = dataset.nanswer,
     }
-    local nsample = dataset.images:size(1)
+    if not blind then
+        new_dataset.images = {}
+        new_dataset.nimage = dataset.nimage
+    end
+    local nsample = dataset.questions:size(1)
     local new_idx = 0
     for old_idx = 1, nsample, batch_size do
         local from = old_idx
         local to = math.min(old_idx + batch_size - 1, nsample)
         new_idx = new_idx + 1
         if use_cuda then
-            new_dataset.images[new_idx] = dataset.images[{{from, to}}]:float():cuda()
+            if not blind then
+                new_dataset.images[new_idx] = dataset.images[{{from, to}}]:float():cuda()
+            end
             new_dataset.questions[new_idx] = dataset.questions[{{from, to}}]:float():cuda()
             new_dataset.answers[new_idx] = dataset.answers[{{from, to}}]:float():cuda()
         else
-            new_dataset.images[new_idx] = dataset.images[{{from, to}}]
+            if not blind then
+                new_dataset.images[new_idx] = dataset.images[{{from, to}}]
+            end
             new_dataset.questions[new_idx] = dataset.questions[{{from, to}}]
             new_dataset.answers[new_idx] = dataset.answers[{{from, to}}]
         end
@@ -57,13 +63,13 @@ local function gen_log_name()
 end
 
 -- log evaluation result
-local function log(tag, epoch, iter, loss, acc)
-    local LOG_FORMAT = '(%s)Epoch %d, Iteration %d, loss = %.2f, acc = %.2f'
-    print(string.format(LOG_FORMAT, tag, epoch, iter, loss, acc))
+local function log(tag, epoch, iter, loss, min_loss, acc, max_acc)
+    local LOG_FORMAT = '(%s)Epoch %d, Iteration %d, loss = %.2f(%.2f), acc = %.2f(%.2f)'
+    print(string.format(LOG_FORMAT, tag, epoch, iter, loss, min_loss, acc, max_acc))
 end
 
 -- evaluate model on the given testset
-local function test(model, criterion, testset, batch_mode)
+local function test(model, criterion, testset, batch_mode, blind)
     
     -- initialize confusion matrix
     local confusion = optim.ConfusionMatrix(testset.nanswer)
@@ -78,7 +84,12 @@ local function test(model, criterion, testset, batch_mode)
     -- loop testset
     for i = 1, testset.nsample do
         -- get data
-        local x = {testset.images[i], testset.questions[i]}
+        local x = 1  -- placeholder
+        if not blind then
+            x = {testset.images[i], testset.questions[i]}
+        else
+            x = testset.questions[i]
+        end
         local t = testset.answers[i]
         local loss = criterion:forward(model:forward(x), t)
         confusion_add(confusion, model.output, t)
@@ -96,6 +107,14 @@ local function get_plotter(save_dir, name, tag)
     return plotter
 end
 
+local function get_max(a,b)
+    if a > b then return a else return b end
+end
+
+local function get_min(a,b)
+    if a < b then return a else return b end
+end
+
 --[[
    train the given model
 
@@ -108,11 +127,14 @@ end
     `opt.learningRate`      option[0.001]
     `opt.weightDecay`       option[0.0005]
     `opt.momentum           option[0.9]
-    `opt.display_interval`  option[500]
+    `opt.display_interval`  option
     `opt.gpuid`             option[0]
     `opt.plot_dir`          option
     `opt.tag`               option              distinguish different training
     `opt.quiet`             option[false]
+    `opt.check_point`       option
+    `opt.cp_dir`            option
+    `opt.blind`             option
 --]]
 function train(opt, model, criterion, trainset, testset)
 
@@ -120,10 +142,10 @@ function train(opt, model, criterion, trainset, testset)
     opt.learningRate = opt.learningRate or 1e-3
     opt.weightDecay = opt.weightDecay or 5e-4
     opt.momentum = opt.momentum or 0.9
-    opt.display_interval = opt.display_interval or 500
     opt.gpuid = opt.gpuid or -1
     opt.plot_dir = opt.plot_dir or 'done'
     opt.tag = opt.tag or 'default'
+    opt.cp_dir = opt.cp_dir or '.'
 
     -- trigger loging
     if opt.log_dir then
@@ -163,9 +185,9 @@ function train(opt, model, criterion, trainset, testset)
 
     -- split dataset in batch mode and convert data to cuda type
     if opt.batch_size and opt.batch_size > 1 then
-        trainset = batch_view(trainset, opt.batch_size, opt.gpuid>=0)
+        trainset = batch_view(trainset, opt.batch_size, opt.gpuid>=0, opt.blind)
         if testset then
-            testset = batch_view(testset, opt.batch_size, opt.gpuid>=0)
+            testset = batch_view(testset, opt.batch_size, opt.gpuid>=0, opt.blind)
         end
         collectgarbage()
     elseif opt.gpuid >= 0 then
@@ -191,6 +213,8 @@ function train(opt, model, criterion, trainset, testset)
     local display_interval = opt.display_interval
     -- accumulated loss for the interval of the iteration and epoch
     local iter_loss, epoch_loss = 0, 0
+    -- statistic for evaluation
+    local min_train_loss, min_test_loss, max_train_acc, max_test_acc = 1e12,1e12,0,0
     -- save old parameters to compute the diff for debug
     -- local old_params = torch.Tensor()
 
@@ -205,6 +229,11 @@ function train(opt, model, criterion, trainset, testset)
     -- plot tools
     local acc_plotter = get_plotter(opt.plot_dir, 'acc', opt.tag)
     local loss_plotter = get_plotter(opt.plot_dir, 'loss', opt.tag)
+
+    -- prepare for check point
+    if opt.check_point then
+        os.execute('mkdir -p "' .. opt.cp_dir .. '"')
+    end
 
     -- loop epoch
     while true do
@@ -231,7 +260,12 @@ function train(opt, model, criterion, trainset, testset)
                 
                 -- get data
                 -- x, t = unpack(trainset[i])
-                local x = {trainset.images[i], trainset.questions[i]}
+                local x = 1 -- placeholder
+                if not opt.blind then
+                    x = {trainset.images[i], trainset.questions[i]}
+                else
+                    x = trainset.questions[i]
+                end
                 local t = trainset.answers[i]
 
                 -- forward
@@ -263,10 +297,10 @@ function train(opt, model, criterion, trainset, testset)
             optim.sgd(feval, parameters, config)
 
             -- display the evaluation of the last interval
-            if not opt.quiet and niter % display_interval == 0 then
+            if not opt.quiet and display_interval and niter % display_interval == 0 then
                 iter_confusion:updateValids()
                 local train_loss = iter_loss / display_interval
-                log('train#1', nepoch, niter, train_loss, iter_confusion.totalValid)
+                log('train#1', nepoch, niter, train_loss, 0, iter_confusion.totalValid, 0)
                 
                 acc_plotter:add{['train iteration'] = {niter, iter_confusion.totalValid}}
                 loss_plotter:add{['train iteration'] = {niter, train_loss}}
@@ -283,7 +317,9 @@ function train(opt, model, criterion, trainset, testset)
         if not opt.quiet then
             epoch_confusion:updateValids()
             local train_loss = epoch_loss /iters_per_epoch
-            log('train#2', nepoch, niter, train_loss, epoch_confusion.totalValid)
+            min_train_loss = get_min(min_train_loss, train_loss)
+            max_train_acc = get_max(max_train_acc, epoch_confusion.totalValid)
+            log('train#2', nepoch, niter, train_loss, min_train_loss, epoch_confusion.totalValid, max_train_acc)
             acc_plotter:add{['train epoch'] = {niter, epoch_confusion.totalValid}}
             loss_plotter:add{['train epoch'] = {niter, train_loss}}
             epoch_loss = 0
@@ -291,14 +327,24 @@ function train(opt, model, criterion, trainset, testset)
 
             if testset then
                 -- display testset evaluation result
-                local test_loss, test_acc = test(model, criterion, testset, opt.batch_size and opt.batch_size > 1)
-                log('test#2', nepoch, niter, test_loss, test_acc)
+                local test_loss, test_acc = test(model, criterion, testset, opt.batch_size and opt.batch_size > 1, opt.blind)
+                min_test_loss = get_min(min_test_loss, test_loss)
+                max_test_acc = get_max(max_test_acc, test_acc)
+                log('test#2', nepoch, niter, test_loss, min_test_loss, test_acc, max_test_acc)
                 acc_plotter:add{['test epoch'] = {niter, test_acc}}
                 loss_plotter:add{['test epoch'] = {niter, test_loss}}
             end
 
             acc_plotter:plot()
             loss_plotter:plot()
+        end
+
+        -- check point 
+        if opt.check_piont and nepoch % opt.check_point == 0 then
+            local cp_name = get_log_name() .. '.epoch' .. nepoch
+            cp_name = paths.concat(opt.cp_dir, cp_name)
+            torch.save(cp_name, {opt, model})
+            print('save model to ' .. cp_name)
         end
 
         -- epoch end time

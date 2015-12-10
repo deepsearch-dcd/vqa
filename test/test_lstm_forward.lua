@@ -1,5 +1,3 @@
---require('..')
-
 local LSTM = require 'module/LSTM'
 
 local inputs

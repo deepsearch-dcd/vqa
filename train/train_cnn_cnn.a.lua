@@ -50,6 +50,7 @@ local opt = {
     display_interval = 50,
     gpuid = 0,
     plot_dir = 'done/cnn_cnn.a',
-    learningRate = 0.001
+    learningRate = 0.001,
+    log_dir = "done/cnn_cnn.a",
 }
 train(opt, model, criterion, trainset, testset)
