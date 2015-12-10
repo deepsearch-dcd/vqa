@@ -2,26 +2,21 @@ require('torch')
 require('nn')
 require('nngraph')
 require('optim')
---require('xlua')
+require('xlua')
+require('cunn')
 --require('sys')
 --require('lfs')
+DAQUAR = require 'dataset/DAQUAR'
+npy4th = require 'npy4th'
 
 vqalstm = {}
 
---include('util/read_data.lua')
---include('util/Tree.lua')
---include('util/Vocab.lua')
---include('layers/CRowAddTable.lua')
 include('module/fLSTM.lua')
---include('models/TreeLSTM.lua')
---include('models/ChildSumTreeLSTM.lua')
---include('models/BinaryTreeLSTM.lua')
---include('relatedness/LSTMSim.lua')
---include('relatedness/TreeLSTMSim.lua')
---include('sentiment/LSTMSentiment.lua')
---include('sentiment/TreeLSTMSentiment.lua')
+include('module/fRNN.lua')
+include('module/fRNNSU.lua')
+include('model/LSTMVQA.lua')
 
-printf = utils.printf
+--printf = utils.printf
 
 -- global paths (modify if desired)
 --vqalstm.data_dir        = 'data'

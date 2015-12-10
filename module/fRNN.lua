@@ -1,19 +1,17 @@
 --[[
 
- Long Short-Term Memory.
- treelstm -> vqalstm
+ flexible Recurrent Neural Network.
+
 --]]
 
-local LSTM, parent = torch.class('vqalstm.LSTM', 'nn.Module')
+local RNN, parent = torch.class('vqalstm.RNN', 'nn.Module')
 
-function LSTM:__init(config)
+function RNN:__init(config)
   parent.__init(self)
 
   self.in_dim = config.in_dim
   self.mem_dim = config.mem_dim or 150
   self.num_layers = config.num_layers or 1
-  self.gate_output = config.gate_output
-  if self.gate_output == nil then self.gate_output = true end
   self.cuda = config.cuda or false
 
   self.master_cell = self:new_cell()
@@ -22,37 +20,28 @@ function LSTM:__init(config)
 
   -- initial (t = 0) states for forward propagation and initial error signals
   -- for backpropagation
-  local ctable_init, ctable_grad, htable_init, htable_grad
+  local htable_init, htable_grad
   if self.num_layers == 1 then
-    ctable_init = torch.zeros(self.mem_dim)
     htable_init = torch.zeros(self.mem_dim)
-    ctable_grad = torch.zeros(self.mem_dim)
     htable_grad = torch.zeros(self.mem_dim)
     if self.cuda then
-      ctable_init = ctable_init:float():cuda()
       htable_init = htable_init:float():cuda()
-      ctable_grad = ctable_grad:float():cuda()
       htable_grad = htable_grad:float():cuda()
     end
   else
-    ctable_init, ctable_grad, htable_init, htable_grad = {}, {}, {}, {}
+    htable_init, htable_grad = {}, {}
     for i = 1, self.num_layers do
-      ctable_init[i] = torch.zeros(self.mem_dim)
       htable_init[i] = torch.zeros(self.mem_dim)
-      ctable_grad[i] = torch.zeros(self.mem_dim)
       htable_grad[i] = torch.zeros(self.mem_dim)
       if self.cuda then
-        ctable_init[i] = ctable_init[i]:float():cuda()
         htable_init[i] = htable_init[i]:float():cuda()
-        ctable_grad[i] = ctable_grad[i]:float():cuda()
         htable_grad[i] = htable_grad[i]:float():cuda()
       end
     end
   end
-  self.initial_values = {ctable_init, htable_init}
+  self.initial_values = htable_init
   self.gradInput = {
     torch.zeros(self.in_dim),
-    ctable_grad,
     htable_grad
   }
   if self.cuda then
@@ -60,21 +49,19 @@ function LSTM:__init(config)
   end
 end
 
--- Instantiate a new LSTM cell.
+-- Instantiate a new RNN cell.
 -- Each cell shares the same parameters, but the activations of their constituent
 -- layers differ.
-function LSTM:new_cell()
+function RNN:new_cell()
   local input = nn.Identity()()
-  local ctable_p = nn.Identity()()
   local htable_p = nn.Identity()()
 
-  -- multilayer LSTM
-  local htable, ctable = {}, {}
+  -- multilayer RNN
+  local htable = {}
   for layer = 1, self.num_layers do
     local h_p = (self.num_layers == 1) and htable_p or nn.SelectTable(layer)(htable_p)
-    local c_p = (self.num_layers == 1) and ctable_p or nn.SelectTable(layer)(ctable_p)
 
-    local new_gate = function()
+    local new_layer = function()
       local in_module = (layer == 1)
         and nn.Linear(self.in_dim, self.mem_dim)(input)
         or  nn.Linear(self.mem_dim, self.mem_dim)(htable[layer - 1])
@@ -84,29 +71,14 @@ function LSTM:new_cell()
       }
     end
 
-    -- input, forget, and output gates
-    local i = nn.Sigmoid()(new_gate())
-    local f = nn.Sigmoid()(new_gate())
-    local update = nn.Tanh()(new_gate())
-
-    -- update the state of the LSTM cell
-    ctable[layer] = nn.CAddTable(){
-      nn.CMulTable(){f, c_p},
-      nn.CMulTable(){i, update}
-    }
-
-    if self.gate_output then
-      local o = nn.Sigmoid()(new_gate())
-      htable[layer] = nn.CMulTable(){o, nn.Tanh()(ctable[layer])}
-    else
-      htable[layer] = nn.Tanh()(ctable[layer])
-    end
+    -- update the state of the RNN cell
+    htable[layer] = nn.Tanh()(new_layer())
   end
 
-  -- if LSTM is single-layered, this makes htable/ctable Tensors (instead of tables).
+  -- if RNN is single-layered, this makes htable/ctable Tensors (instead of tables).
   -- this avoids some quirks with nngraph involving tables of size 1.
-  htable, ctable = nn.Identity()(htable), nn.Identity()(ctable)
-  local cell = nn.gModule({input, ctable_p, htable_p}, {ctable, htable})
+  htable = nn.Identity()(htable)
+  local cell = nn.gModule({input, htable_p}, {htable})
   if self.cuda then
     cell = cell:cuda()
   end
@@ -120,9 +92,9 @@ end
 
 -- Forward propagate.
 -- inputs: T x in_dim tensor, where T is the number of time steps.
--- reverse: if true, read the input from right to left (useful for bidirectional LSTMs).
--- Returns the final hidden state of the LSTM.
-function LSTM:forward(inputs, reverse)
+-- reverse: if true, read the input from right to left (useful for bidirectional RNNs).
+-- Returns the final hidden state of the RNN.
+function RNN:forward(inputs, reverse)
   local size = inputs:size(1)
   for t = 1, size do
     local input = reverse and inputs[size - t + 1] or inputs[t]
@@ -139,8 +111,8 @@ function LSTM:forward(inputs, reverse)
       prev_output = self.initial_values
     end
 
-    local outputs = cell:forward({input, prev_output[1], prev_output[2]})
-    local ctable, htable = unpack(outputs)
+    local outputs = cell:forward({input, prev_output})
+    local htable = outputs
     if self.num_layers == 1 then
       self.output = htable
     else
@@ -158,7 +130,7 @@ end
 -- grad_outputs: T x num_layers x mem_dim tensor.
 -- reverse: if true, read the input from right to left.
 -- Returns the gradients with respect to the inputs (in the same order as the inputs).
-function LSTM:backward(inputs, grad_outputs, reverse)
+function RNN:backward(inputs, grad_outputs, reverse)
   local size = inputs:size(1)
   if self.depth == 0 then
     error("No cells to backpropagate through")
@@ -172,18 +144,18 @@ function LSTM:backward(inputs, grad_outputs, reverse)
     local input = reverse and inputs[size - t + 1] or inputs[t]
     local grad_output = reverse and grad_outputs[size - t + 1] or grad_outputs[t]
     local cell = self.cells[self.depth]
-    local grads = {self.gradInput[2], self.gradInput[3]}
+    local grads = self.gradInput[2]
     if self.num_layers == 1 then
-      grads[2]:add(grad_output)
+      grads:add(grad_output)
     else
       for i = 1, self.num_layers do
-        grads[2][i]:add(grad_output[i])
+        grads[i]:add(grad_output[i])
       end
     end
 
     local prev_output = (self.depth > 1) and self.cells[self.depth - 1].output
                                          or self.initial_values
-    self.gradInput = cell:backward({input, prev_output[1], prev_output[2]}, grads)
+    self.gradInput = cell:backward({input, prev_output}, grads)
     if reverse then
       input_grads[size - t + 1] = self.gradInput[1]
     else
@@ -195,24 +167,23 @@ function LSTM:backward(inputs, grad_outputs, reverse)
   return input_grads
 end
 
-function LSTM:share(lstm, ...)
-  if self.in_dim ~= lstm.in_dim then error("LSTM input dimension mismatch") end
-  if self.mem_dim ~= lstm.mem_dim then error("LSTM memory dimension mismatch") end
-  if self.num_layers ~= lstm.num_layers then error("LSTM layer count mismatch") end
-  if self.gate_output ~= lstm.gate_output then error("LSTM output gating mismatch") end
+function RNN:share(lstm, ...)
+  if self.in_dim ~= lstm.in_dim then error("RNN input dimension mismatch") end
+  if self.mem_dim ~= lstm.mem_dim then error("RNN memory dimension mismatch") end
+  if self.num_layers ~= lstm.num_layers then error("RNN layer count mismatch") end
   share_params(self.master_cell, lstm.master_cell, ...)
 end
 
-function LSTM:zeroGradParameters()
+function RNN:zeroGradParameters()
   self.master_cell:zeroGradParameters()
 end
 
-function LSTM:parameters()
+function RNN:parameters()
   return self.master_cell:parameters()
 end
 
 -- Clear saved gradients
-function LSTM:forget()
+function RNN:forget()
   self.depth = 0
   for i = 1, #self.gradInput do
     local gradInput = self.gradInput[i]
