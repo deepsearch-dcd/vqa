@@ -46,19 +46,19 @@ end
 -- pt: [str] define which part of `str` will be reserve.
 -- skip: [boolean] if true, will skip the blank part. *default* is true.
 local function split(str, pt, skip)
-        skip = (skip==nil) or skip
-        local ret = {}
-        if skip then
-                for chunk in string.gfind(str, pt) do
-                        table.insert(ret, chunk)
-                end
-        else
-                for chunk in string.gfind(str,pt) do
-                        if chunk ~= '' then
-                                table.insert(ret, chunk)
-                        end
-                end
+    skip = (skip==nil) or skip
+    local ret = {}
+    if skip then
+        for chunk in string.gfind(str, pt) do
+            if chunk ~= '' then
+                table.insert(ret, chunk)
+            end
         end
+    else
+        for chunk in string.gfind(str,pt) do
+            table.insert(ret, chunk)
+        end
+    end
         return ret
 end
 
@@ -158,6 +158,22 @@ function util.assemble(ids, vocab)
         flat_out[i] = vocab[flat_ids[i]]
     end
     return out
+end
+
+function util.index_data(data, vocab, unk_data)
+    if #data == 0 then return end
+    for i,sub_data in ipairs(data) do
+        if type(sub_data) == 'table' then
+            util.index_data(sub_data, vocab, unk_data)
+        else
+            if vocab[sub_data] ~= nil then
+                data[i] = vocab[sub_data]
+            else
+                assert(vocab[unk_data] ~= nil)
+                data[i] = vocab[unk_data]
+            end
+        end
+    end
 end
 
 return util
