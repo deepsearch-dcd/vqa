@@ -12,7 +12,7 @@ cmd:text()
 cmd:text('Training script for VQA on the DAQUAR dataset.')
 cmd:text()
 cmd:text('Options')
-cmd:option('-mpath','done/vqalstm-rnn_textonly.l1.d150.e37.c1-2015-12-04T081911.t7','Model path')
+cmd:option('-mpath','done/vqalstm-DAQUAR-rnn_textonly.l1.d150.e37.c1-2015-12-04T081911.t7','Model path')
 cmd:option('-testnum',20,'Test sample number')
 cmd:text()
 local args = cmd:parse(arg)
@@ -22,6 +22,14 @@ local testnum = args.testnum
 local model_save_path = args.mpath
 local cuda = string.find(model_save_path, 'c1') and true or false
 local textonly = string.find(model_save_path, 'textonly') and true or false
+local dataset
+if string.find(model_save_path, 'DAQUAR') then
+  dataset = 'DAQUAR'
+elseif string.find(model_save_path, 'COCOQA') then
+  dataset = 'COCOQA'
+else
+  dataset = 'DAQUAR'
+end
 local model_class = vqalstm.LSTMVQA
 if textonly then
   header('LSTM for VQA with text only')
@@ -36,8 +44,15 @@ local model = model_class.load(model_save_path)
 --model:save(model_save_path)
 
 ---------- load dataset ----------
-print('loading datasets')
-local trainset, testset, vocab = DAQUAR.process_to_table()
+print('loading '.. dataset ..' datasets')
+local trainset, testset, vocab
+if dataset == 'DAQUAR' then
+  trainset, testset, vocab = DAQUAR.process_to_table()
+elseif dataset == 'COCOQA' then
+  trainset, testset, vocab = COCOQA.load_data{format='table', add_pad_word=false, add_unk_word=true, add_unk_answer=false}
+else
+  error('Unknown dataset')
+end
 for i=1,trainset.size do
   trainset.questions[i] = torch.Tensor(trainset.questions[i])
 end
@@ -60,7 +75,12 @@ print('num test  = '.. testset.size)
 ---------- load features ----------
 if not textonly then
   print('loading features')
-  feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
+  local feas
+  if dataset == 'DAQUAR' then
+    feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
+  elseif dataset == 'COCOQA' then
+    feas = npy4th.loadnpy('./feature/COCO-QA/GooLeNet-1000-softmax.npy')
+  end
   if cuda then
     feas = feas:float():cuda()
   end

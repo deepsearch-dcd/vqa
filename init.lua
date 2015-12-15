@@ -6,6 +6,7 @@ require('xlua')
 require('cunn')
 --require('sys')
 --require('lfs')
+COCOQA = require 'dataset/COCOQA'
 DAQUAR = require 'dataset/DAQUAR'
 npy4th = require 'npy4th'
 

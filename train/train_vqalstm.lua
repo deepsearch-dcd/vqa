@@ -18,6 +18,7 @@ cmd:option('-dim',150,'LSTM memory dimension')
 cmd:option('-epochs',50,'Number of training epochs')
 cmd:option('-cuda',false,'Using cuda')
 cmd:option('-textonly',false,'Text only')
+cmd:option('-dataset','DAQUAR','Dataset')
 cmd:text()
 local args = cmd:parse(arg)
 
@@ -36,6 +37,7 @@ local model_structure = args.model
 local num_epochs = args.epochs
 local cuda = args.cuda
 local textonly = args.textonly
+local dataset = args.dataset
 local model_class = vqalstm.LSTMVQA
 if textonly then
   cmd:log(paths.thisfile() ..'-'.. model_structure .. os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log')
@@ -46,8 +48,17 @@ else
 end
 
 ---------- load dataset ----------
-print('loading datasets')
-local trainset, testset, vocab = DAQUAR.process_to_table()
+print('loading '.. dataset ..' datasets')
+local trainset, testset, vocab
+if dataset == 'DAQUAR' then
+  trainset, testset, vocab = DAQUAR.process_to_table()
+elseif dataset == 'COCOQA' then
+  trainset, testset, vocab = COCOQA.load_data{format='table', add_pad_word=false, add_unk_word=true, add_unk_answer=false}
+  trainset.answers = torch.Tensor(trainset.answers)
+  testset.answers = torch.Tensor(testset.answers)
+else
+  error('Unknown dataset')
+end
 for i=1,trainset.size do
   trainset.questions[i] = torch.Tensor(trainset.questions[i])
 end
@@ -70,7 +81,12 @@ print('num test  = '.. testset.size)
 ---------- load features ----------
 if not textonly then
   print('loading features')
-  feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
+  local feas
+  if dataset == 'DAQUAR' then
+    feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
+  elseif dataset == 'COCOQA' then
+    feas = npy4th.loadnpy('./feature/COCO-QA/GooLeNet-1000-softmax.npy')
+  end
   if cuda then
     feas = feas:float():cuda()
   end
@@ -145,12 +161,12 @@ print('best dev score is: '.. best_dev_score)
 ---------- Save model ----------
 local model_save_path
 if textonly then
-  model_save_path = string.format("./done/vqalstm-%s_textonly.l%d.d%d.e%d.c%d-%s.t7", 
-    args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
+  model_save_path = string.format("./done/vqalstm-%s-%s_textonly.l%d.d%d.e%d.c%d-%s.t7", 
+    args.dataset, args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
     os.date('%Y-%m-%dT%H%M%S'))
 else
-  model_save_path = string.format("./done/vqalstm-%s.l%d.d%d.e%d.c%d-%s.t7", 
-    args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
+  model_save_path = string.format("./done/vqalstm-%s-%s.l%d.d%d.e%d.c%d-%s.t7", 
+    args.dataset, args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
     os.date('%Y-%m-%dT%H%M%S'))
 end
 
