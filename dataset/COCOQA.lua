@@ -160,12 +160,12 @@ function COCOQA.load_data(settings)
     util.index_data(test_answers, vocab.answer_to_index, UNK_WORD)
 
     -- padding
-    if add_pad_word then
-        assert(max_length)
+    if settings.add_pad_word then
+        assert(settings.max_length)
         local padding = vocab.word_to_index[PAD_WORD]
         assert(padding)
-        pad_or_chop(train_questions, max_length, padding)
-        pad_or_chop(test_questions, max_length, padding)
+        pad_or_chop(train_questions, settings.max_length, padding)
+        pad_or_chop(test_questions, settings.max_length, padding)
     end
 
     -- constructure dataset

@@ -2,10 +2,6 @@ if vqalstm==nil then
   require('..')
 end
 
-function accuracy(pred, gold)
-  return torch.eq(pred, gold):sum() / pred:size(1)
-end
-
 -- read command line arguments
 local cmd = torch.CmdLine()
 cmd:text()
@@ -14,6 +10,7 @@ cmd:text()
 cmd:text('Options')
 cmd:option('-mpath','done/vqalstm-DAQUAR-rnn_textonly.l1.d150.e37.c1-2015-12-04T081911.t7','Model path')
 cmd:option('-testnum',20,'Test sample number')
+cmd:option('-rmdeter',false,'Remove determiner')
 cmd:text()
 local args = cmd:parse(arg)
 
@@ -50,9 +47,70 @@ if dataset == 'DAQUAR' then
   trainset, testset, vocab = DAQUAR.process_to_table()
 elseif dataset == 'COCOQA' then
   trainset, testset, vocab = COCOQA.load_data{format='table', add_pad_word=false, add_unk_word=true, add_unk_answer=false}
+  trainset.answers = torch.Tensor(trainset.answers)
+  testset.answers = torch.Tensor(testset.answers)
 else
   error('Unknown dataset')
 end
+
+-- Remove determiner
+if args.rmdeter then
+  -- build determiner set
+  local determiner = {}
+  addToSet(determiner,vocab.word_to_index['a'])
+  addToSet(determiner,vocab.word_to_index['an'])
+  addToSet(determiner,vocab.word_to_index['the'])
+  addToSet(determiner,vocab.word_to_index['this'])
+  addToSet(determiner,vocab.word_to_index['that'])
+  addToSet(determiner,vocab.word_to_index['these'])
+  addToSet(determiner,vocab.word_to_index['those'])
+  addToSet(determiner,vocab.word_to_index['such'])
+  addToSet(determiner,vocab.word_to_index['my'])
+  addToSet(determiner,vocab.word_to_index['your'])
+  addToSet(determiner,vocab.word_to_index['his'])
+  addToSet(determiner,vocab.word_to_index['her'])
+  addToSet(determiner,vocab.word_to_index['our'])
+  addToSet(determiner,vocab.word_to_index['their'])
+  addToSet(determiner,vocab.word_to_index['its'])
+  addToSet(determiner,vocab.word_to_index['some'])
+  addToSet(determiner,vocab.word_to_index['any'])
+  addToSet(determiner,vocab.word_to_index['each'])
+  addToSet(determiner,vocab.word_to_index['every'])
+  --addToSet(determiner,vocab.word_to_index['no'])
+  addToSet(determiner,vocab.word_to_index['either'])
+  addToSet(determiner,vocab.word_to_index['neither'])
+  addToSet(determiner,vocab.word_to_index['enough'])
+  addToSet(determiner,vocab.word_to_index['all'])
+  addToSet(determiner,vocab.word_to_index['both'])
+  addToSet(determiner,vocab.word_to_index['several'])
+  addToSet(determiner,vocab.word_to_index['many'])
+  addToSet(determiner,vocab.word_to_index['much'])
+  addToSet(determiner,vocab.word_to_index['few'])
+  --addToSet(determiner,vocab.word_to_index['little'])
+  addToSet(determiner,vocab.word_to_index['other'])
+  addToSet(determiner,vocab.word_to_index['another'])
+
+  for i=1,trainset.size do
+    local ques = trainset.questions[i]
+    for j=#ques,1,-1 do
+      if setContains(determiner, ques[j]) then
+        table.remove(ques,j)
+      end
+    end
+  end
+  for i=1,testset.size do
+    local ques = testset.questions[i]
+    for j=#ques,1,-1 do
+      if setContains(determiner, ques[j]) then
+        table.remove(ques,j)
+      end
+    end
+  end
+
+  print('Remove determiner done.')
+end
+
+-- convert table to Tensor
 for i=1,trainset.size do
   trainset.questions[i] = torch.Tensor(trainset.questions[i])
 end
@@ -60,6 +118,7 @@ for i=1,testset.size do
   testset.questions[i] = torch.Tensor(testset.questions[i])
 end
 
+-- convert to cuda
 if cuda then
   for i=1,trainset.size do
     trainset.questions[i] = trainset.questions[i]:float():cuda()

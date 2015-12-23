@@ -9,6 +9,8 @@ require('cunn')
 COCOQA = require 'dataset/COCOQA'
 DAQUAR = require 'dataset/DAQUAR'
 npy4th = require 'npy4th'
+require 'util/Set'
+
 
 vqalstm = {}
 
@@ -48,3 +50,8 @@ function header(s)
 end
 
 header('init function being called ...')
+
+-- some useful functions
+function accuracy(pred, gold) -- both are torch.Tensor
+  return torch.eq(pred, gold):sum() / pred:size(1)
+end
