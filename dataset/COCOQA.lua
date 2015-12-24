@@ -247,6 +247,10 @@ function COCOQA.load_data(settings)
     if settings.load_caption then
         assert(#captions == #vocab.index_to_image)
     end
+    captions = cap_
+    if settings.load_caption then
+        assert(#captions == #vocab.index_to_image)
+    end
 
     -- constructure dataset
     local trainset = {
