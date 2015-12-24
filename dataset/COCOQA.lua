@@ -217,6 +217,7 @@ function COCOQA.load_data(settings)
         table.insert(vocab.index_to_answer, UNK_WORD)
         vocab.answer_to_index[UNK_WORD] = #vocab.index_to_answer
     end
+    print (vocab.word_to_index[UNK_WORD])
 
     -- index data
     util.index_data(train_images, vocab.image_to_index)
@@ -247,6 +248,9 @@ function COCOQA.load_data(settings)
     if settings.load_caption then
         assert(#captions == #vocab.index_to_image)
     end
+    captions = cap_
+    print(captions[1])
+    assert(#captions == #vocab.index_to_image)
 
     -- constructure dataset
     local trainset = {
