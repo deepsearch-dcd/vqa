@@ -189,14 +189,12 @@ function COCOQA.load_data(settings)
     if settings.load_caption then
         captions = process_caption()
     end
-    print(captions[1])
 
     if settings.discard_det == true then
         train_questions = discard_word(train_questions, DETERMINER)
         test_questions = discard_word(test_questions, DETERMINER)
         captions = discard_word(captions, DETERMINER)
     end
-    print(captions[1])
 
     -- extract vocabulary
     local vocab = {}
@@ -230,7 +228,6 @@ function COCOQA.load_data(settings)
     util.index_data(test_questions, vocab.word_to_index, UNK_WORD)
     util.index_data(test_answers, vocab.answer_to_index, UNK_WORD)
     util.index_data(captions, vocab.word_to_index)
-    print(captions[1])
 
     -- padding
     if settings.add_pad_word then
@@ -247,6 +244,10 @@ function COCOQA.load_data(settings)
     for i = 1,#captions,5 do
         table.insert(cap_, {captions[i], captions[i+1], captions[i+2],
                                captions[i+3], captions[i+4]})
+    end
+    captions = cap_
+    if settings.load_caption then
+        assert(#captions == #vocab.index_to_image)
     end
     captions = cap_
     print(captions[1])
