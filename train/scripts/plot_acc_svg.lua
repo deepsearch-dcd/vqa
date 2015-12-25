@@ -44,3 +44,19 @@ gnuplot.ylabel('accuracy')
 gnuplot.grid(grid)
 gnuplot.title(file_path)
 gnuplot.plotflush()
+
+-- max test accuracy
+local maxepoch = 1
+local maxtracc = 0
+local maxttacc = 0
+for i=1,epoch:size(1) do
+  if tt_score[i] > maxttacc then
+  	maxepoch = i
+  	maxtracc = tr_score[i]
+  	maxttacc = tt_score[i]
+  end
+end
+print('Best test accuracy:')
+print('at epoch '.. maxepoch)
+print('-- train score: '.. maxtracc)
+print('-- test score: '.. maxttacc)
