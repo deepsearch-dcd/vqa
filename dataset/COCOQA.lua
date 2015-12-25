@@ -147,6 +147,15 @@ local function pad_or_chop(questions, max_length, pad_word)
 end
 
 
+local function dup_cap(caps, img_ids)
+    local captions = {}
+    for _,img_ids in ipairs(img_ids) do
+        table.insert(captions, caps[img_ids])
+    end
+    return captions
+end
+
+
 local function add_statistic(dataset, vocab)
     
     dataset.nsample = #dataset.questions
@@ -164,6 +173,9 @@ local function format_tensor(dataset)
     dataset.questions = Tensor(dataset.questions)
     dataset.answers = Tensor(dataset.answers)
     dataset.types = Tensor(dataset.types)
+    if dataset.captions ~= nil then
+        dataset.captions = Tensor(dataset.captions)
+    end
 
 end
 
@@ -237,33 +249,36 @@ function COCOQA.load_data(settings)
         pad_or_chop(captions, settings.max_length, padding)
     end
 
-    -- align captions to images
-    local cap_ = {}
-    for i = 1,#captions,5 do
-        table.insert(cap_, {captions[i], captions[i+1], captions[i+2],
-                               captions[i+3], captions[i+4]})
-    end
-    captions = cap_
+    local train_captions, test_captions = nil, nil
     if settings.load_caption then
-        assert(#captions == #vocab.index_to_image)
-    end
-    captions = cap_
-    if settings.load_caption then
-        assert(#captions == #vocab.index_to_image)
+        -- align captions to images
+        local cap_ = {}
+        for i = 1,#captions,5 do
+            table.insert(cap_, {captions[i], captions[i+1], captions[i+2],
+                                   captions[i+3], captions[i+4]})
+        end
+        assert(#cap_ == #vocab.index_to_image)
+
+        -- duplicat captions to make captions match questions
+        train_captions = dup_cap(cap_, train_images)
+        assert(#train_captions == #train_questions)
+        test_captions = dup_cap(cap_, test_images)
+        assert(#test_captions == #test_questions)
     end
 
     -- constructure dataset
     local trainset = {
         images = train_images,
         questions = train_questions,
-        answers = train_answers,
+        answers = train_answers, 
         types = train_types,
-        captions = captions}
+        captions = train_captions}
     local testset = {
         images = test_images, 
         questions = test_questions,
         answers = test_answers,
-        types = test_types}
+        types = test_types,
+        captions = test_captions}
 
     -- add statistic of the dataset
     add_statistic(trainset, vocab)
