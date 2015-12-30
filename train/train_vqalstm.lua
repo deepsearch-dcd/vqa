@@ -11,10 +11,12 @@ cmd:text('Options')
 cmd:option('-model','lstm','Model architecture: [lstm, bilstm, rlstm, rnn, rnnsu]')
 cmd:option('-layers',1,'Number of layers (ignored for Tree-LSTM)')
 cmd:option('-dim',150,'LSTM memory dimension')
+cmd:option('-im_fea_dim',1000,'image feature dimension')
 cmd:option('-epochs',50,'Number of training epochs')
 cmd:option('-cuda',false,'Using cuda')
 cmd:option('-textonly',false,'Text only')
 cmd:option('-rmdeter',false,'Remove determiner')
+cmd:option('-caption',false,'Use caption')
 cmd:option('-dataset','DAQUAR','Dataset')
 cmd:text()
 local args = cmd:parse(arg)
@@ -28,13 +30,13 @@ args.epochs = 50
 args.cuda = true
 args.textonly = true
 --]]
-local vocab_size = 10000
 local emb_dim = 50
 local model_structure = args.model
 local num_epochs = args.epochs
 local cuda = args.cuda
 local textonly = args.textonly
 local dataset = args.dataset
+local use_caption = args.caption
 local model_class = vqalstm.LSTMVQA
 if textonly then
   cmd:log(paths.thisfile() ..'-'.. model_structure .. os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log')
@@ -50,12 +52,55 @@ local trainset, testset, vocab
 if dataset == 'DAQUAR' then
   trainset, testset, vocab = DAQUAR.process_to_table()
 elseif dataset == 'COCOQA' then
-  trainset, testset, vocab = COCOQA.load_data{format='table', add_pad_word=false, add_unk_word=true, add_unk_answer=false}
+  trainset, testset, vocab = COCOQA.load_data{format='table', add_pad_word=false, add_unk_word=true, add_unk_answer=false, load_caption=use_caption}
   trainset.answers = torch.Tensor(trainset.answers)
   testset.answers = torch.Tensor(testset.answers)
 else
   error('Unknown dataset')
 end
+
+-- [[
+if use_caption and textonly then
+  for i=1,trainset.size do
+    local captions = trainset.captions[i]
+    assert(captions~=nil,'caption nil in: '..i)
+    local newques = {}
+    for j=1,1 do --1,#captions
+      local cap = captions[j]
+      for k=1,#cap do
+        table.insert(newques, cap[k]) --newques[#newques+1] = cap[k]
+      end
+    end
+    local ques = trainset.questions[i]
+    for j=1,#ques do
+      table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
+    end
+    trainset.questions[i] = newques
+  end
+  trainset.captions = nil
+  collectgarbage()
+  for i=1,testset.size do
+    local captions = testset.captions[i]
+    assert(captions~=nil,'caption nil in: '..i)
+    local newques = {}
+    for j=1,1 do --1,#captions
+      local cap = captions[j]
+      for k=1,#cap do
+        table.insert(newques, cap[k]) --newques[#newques+1] = cap[k]
+      end
+    end
+    local ques = testset.questions[i]
+    for j=1,#ques do
+      table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
+    end
+    testset.questions[i] = newques
+  end
+  testset.captions = nil
+  collectgarbage()
+
+  print('Append captions with question done.')
+end
+--]]
 
 -- Remove determiner
 if args.rmdeter then
@@ -142,7 +187,13 @@ if not textonly then
   if dataset == 'DAQUAR' then
     feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
   elseif dataset == 'COCOQA' then
-    feas = npy4th.loadnpy('./feature/COCO-QA/GooLeNet-1000-softmax.npy')
+    if args.im_fea_dim==1000 then
+      feas = npy4th.loadnpy('./feature/COCO-QA/GooLeNet-1000-softmax.npy')
+    elseif args.im_fea_dim==1024 then
+      feas = npy4th.loadnpy('./feature/COCO-QA/GooLeNet-1024.npy')
+    elseif args.im_fea_dim==4096 then
+      feas = npy4th.loadnpy('./feature/COCO-QA/VGG19-4096-relu.npy')
+    end
   end
   if cuda then
     feas = feas:float():cuda()
@@ -151,7 +202,7 @@ if not textonly then
   testset.imagefeas = feas
 end
 ---------- load wordvec ----------
-local vecs = torch.rand(vocab_size, emb_dim)
+local vecs = torch.rand(trainset.nvocab, emb_dim)
 
 ---------- initialize model ----------
 local model = model_class{
