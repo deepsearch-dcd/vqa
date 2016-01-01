@@ -13,7 +13,7 @@ function LSTMVQA:__init(config)
   self.num_layers        = config.num_layers        or 1
   self.batch_size        = config.batch_size        or 1 -- train per 1 sample
   self.reg               = config.reg               or 1e-4
-  self.structure         = config.structure         or 'lstm' -- {lstm, bilstm, rlstm, rnn, rnnsu}
+  self.structure         = config.structure         or 'lstm' -- {lstm, bilstm, rlstm, rnn, rnnsu, bow}
   self.dropout           = (config.dropout == nil) and true or config.dropout
   self.num_classes       = config.num_classes
   self.cuda              = config.cuda              or false
@@ -43,7 +43,6 @@ function LSTMVQA:__init(config)
     --self.im_trans_dim = self.emb_dim
     --self.imtrans_module = nn.Linear(self.im_fea_dim, self.im_trans_dim)
     -- [keep the imfea dimension unchanged]
-    self.im_trans_dim = self.im_fea_dim
     self.imtrans_module = nn.Identity()
     self.jointable2 = nn.JoinTable(2)
   end
@@ -71,7 +70,7 @@ function LSTMVQA:__init(config)
     }
   else
     lstm_config = {
-      in_dim = self.emb_dim+self.im_trans_dim,
+      in_dim = self.emb_dim+self.im_fea_dim,
       mem_dim = self.mem_dim,
       num_layers = self.num_layers,
       gate_output = true,
@@ -88,6 +87,8 @@ function LSTMVQA:__init(config)
     self.lstm = vqalstm.RNN(lstm_config)
   elseif self.structure == 'rnnsu' then
     self.lstm = vqalstm.RNNSU(lstm_config)
+  elseif self.structure == 'bow' then
+    self.lstm = vqalstm.BOW(lstm_config)
   else
     error('invalid LSTM type: ' .. self.structure)
   end
@@ -116,7 +117,8 @@ function LSTMVQA:new_vqa_module()
   local input_dim = self.num_layers * self.mem_dim
   local inputs, vec
   if self.structure == 'lstm' or self.structure == 'rlstm' 
-    or self.structure == 'rnn' or self.structure == 'rnnsu' then
+    or self.structure == 'rnn' or self.structure == 'rnnsu'
+    or self.structure == 'bow' then
     local rep = nn.Identity()()
     if self.num_layers == 1 then
       vec = {rep}
@@ -185,7 +187,8 @@ function LSTMVQA:train(dataset)
 
         -- get sentence representations
         local rep -- htables
-        if self.structure == 'lstm' or self.structure == 'rnn' or self.structure == 'rnnsu' then
+        if self.structure == 'lstm' or self.structure == 'rnn'
+          or self.structure == 'rnnsu' or self.structure == 'bow' then
           rep = self.lstm:forward(inputs)
         elseif self.structure == 'rlstm' then
           rep = self.lstm:forward(inputs, true)
@@ -207,7 +210,7 @@ function LSTMVQA:train(dataset)
         local obj_grad = self.criterion:backward(output, ans)
         local rep_grad = self.vqa_module:backward(rep, obj_grad)
         local input_grads
-        if self.structure == 'lstm' or self.structure == 'rnn' or self.structure == 'rnnsu' then
+        if self.structure == 'lstm' or self.structure == 'rnn' or self.structure == 'rnnsu' or self.structure == 'bow' then
           input_grads = self:LSTM_backward(ques, inputs, rep_grad)
         elseif self.structure == 'rlstm' then
           input_grads = self:rLSTM_backward(ques, inputs, rep_grad, true)
@@ -219,7 +222,7 @@ function LSTMVQA:train(dataset)
         else
           local firstInput = input_grads:narrow(2,1,self.emb_dim):clone()
           self.emb:backward(ques, firstInput)
-          local secondInput = input_grads:narrow(2,self.emb_dim+1,self.im_trans_dim):clone()
+          local secondInput = input_grads:narrow(2,self.emb_dim+1,self.im_fea_dim):clone()
           for ii=1,secondInput:size(1) do
             self.imtrans_module:backward(imgfea, secondInput[ii])
           end
@@ -331,7 +334,7 @@ function LSTMVQA:predict(ques, imgfea)
   end
 
   local rep
-  if self.structure == 'lstm' or self.structure == 'rnn' or self.structure == 'rnnsu' then
+  if self.structure == 'lstm' or self.structure == 'rnn' or self.structure == 'rnnsu' or self.structure == 'bow' then
     rep = self.lstm:forward(inputs)
   elseif self.structure == 'rlstm' then
     rep = self.lstm:forward(inputs, true)
