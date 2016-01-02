@@ -43,7 +43,6 @@ function LSTMVQA:__init(config)
     --self.im_trans_dim = self.emb_dim
     --self.imtrans_module = nn.Linear(self.im_fea_dim, self.im_trans_dim)
     -- [keep the imfea dimension unchanged]
-    self.imtrans_module = nn.Identity()
     self.jointable2 = nn.JoinTable(2)
   end
 
@@ -53,7 +52,6 @@ function LSTMVQA:__init(config)
     self.criterion = self.criterion:cuda()
     self.vqa_module = self.vqa_module:cuda()
     if not self.textonly then
-      self.imtrans_module = self.imtrans_module:cuda()
       self.jointable2 = self.jointable2:cuda()
     end
   end
@@ -94,9 +92,6 @@ function LSTMVQA:__init(config)
   end
 
   local modules = nn.Parallel()
-  if not self.textonly then
-    modules:add(self.imtrans_module)
-  end
   modules:add(self.lstm)
   modules:add(self.vqa_module)
 
@@ -166,9 +161,6 @@ function LSTMVQA:train(dataset)
     local feval = function(x)
       self.grad_params:zero()
       self.emb:zeroGradParameters()
-      if not self.textonly then
-        self.imtrans_module:zeroGradParameters()
-      end
 
       local loss = 0
       for j = 1, batch_size do
@@ -181,8 +173,7 @@ function LSTMVQA:train(dataset)
         if not self.textonly then
           local img = dataset.images[idx]
           local imgfea = dataset.imagefeas[img]
-          local imtrans = self.imtrans_module:forward(imgfea)
-          inputs = self.jointable2:forward{inputs, torch.repeatTensor(imtrans,inputs:size(1),1)}
+          inputs = self.jointable2:forward{inputs, torch.repeatTensor(imgfea,inputs:size(1),1)}
         end
 
         -- get sentence representations
@@ -223,9 +214,6 @@ function LSTMVQA:train(dataset)
           local firstInput = input_grads:narrow(2,1,self.emb_dim):clone()
           self.emb:backward(ques, firstInput)
           local secondInput = input_grads:narrow(2,self.emb_dim+1,self.im_fea_dim):clone()
-          for ii=1,secondInput:size(1) do
-            self.imtrans_module:backward(imgfea, secondInput[ii])
-          end
         end
       end
 
@@ -233,7 +221,6 @@ function LSTMVQA:train(dataset)
       --loss = loss / batch_size
       --self.grad_params:div(batch_size)
       --self.emb.gradWeight:div(batch_size)
-      --self.imtrans_module.gradWeight:div(batch_size)
 
       -- regularization
       loss = loss + 0.5 * self.reg * self.params:norm() ^ 2
@@ -243,9 +230,6 @@ function LSTMVQA:train(dataset)
 
     optim.adagrad(feval, self.params, self.optim_state)
     self.emb:updateParameters(self.emb_learning_rate)
-    if not self.textonly then
-      self.imtrans_module:updateParameters(self.emb_learning_rate)
-    end
   end
   xlua.progress(dataset.size, dataset.size)
 end
@@ -329,8 +313,7 @@ function LSTMVQA:predict(ques, imgfea)
   self.vqa_module:evaluate()
   local inputs = self.emb:forward(ques)
   if not self.textonly then
-    local imtrans = self.imtrans_module:forward(imgfea)
-    inputs = self.jointable2:forward{inputs, torch.repeatTensor(imtrans,inputs:size(1),1)}
+    inputs = self.jointable2:forward{inputs, torch.repeatTensor(imgfea,inputs:size(1),1)}
   end
 
   local rep
