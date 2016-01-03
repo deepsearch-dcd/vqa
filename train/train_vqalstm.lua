@@ -12,12 +12,13 @@ cmd:option('-model','lstm','Model architecture: [lstm, bilstm, rlstm, rnn, rnnsu
 cmd:option('-layers',1,'Number of layers (ignored for Tree-LSTM)')
 cmd:option('-dim',150,'LSTM memory dimension')
 cmd:option('-im_fea_dim',1024,'image feature dimension')
-cmd:option('-epochs',50,'Number of training epochs')
+cmd:option('-epochs',100,'Number of training epochs')
 cmd:option('-cuda',false,'Using cuda')
 cmd:option('-textonly',false,'Text only')
 cmd:option('-rmdeter',false,'Remove determiner')
 cmd:option('-caption',false,'Use caption')
 cmd:option('-dataset','COCOQA','Dataset [DAQUAR, COCOQA]')
+cmd:option('-modelclass','LSTMVQA','Model class [LSTMVQA, ConcatVQA]')
 cmd:text()
 local args = cmd:parse(arg)
 
@@ -37,7 +38,14 @@ local cuda = args.cuda
 local textonly = args.textonly
 local dataset = args.dataset
 local use_caption = args.caption
-local model_class = vqalstm.LSTMVQA
+local model_class
+if args.modelclass == 'LSTMVQA' then
+  model_class = vqalstm.LSTMVQA
+elseif args.modelclass == 'ConcatVQA' then
+  model_class = vqalstm.ConcatVQA
+else
+  error('Unknown model class')
+end
 if textonly then
   cmd:log(paths.thisfile() ..'-'.. model_structure .. os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log')
   header('LSTM for VQA with text only')
