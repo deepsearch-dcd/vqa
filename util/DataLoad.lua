@@ -22,9 +22,11 @@ function loadData(args)
           table.insert(newques, cap[k]) --newques[#newques+1] = cap[k]
         end
       end
-      local ques = trainset.questions[i]
-      for j=1,#ques do
-        table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
+      if not args.captiononly then
+        local ques = trainset.questions[i]
+        for j=1,#ques do
+          table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
+        end
       end
       trainset.questions[i] = newques
     end
@@ -40,9 +42,11 @@ function loadData(args)
           table.insert(newques, cap[k]) --newques[#newques+1] = cap[k]
         end
       end
-      local ques = testset.questions[i]
-      for j=1,#ques do
-        table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
+      if not args.captiononly then
+        local ques = testset.questions[i]
+        for j=1,#ques do
+          table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
+        end
       end
       testset.questions[i] = newques
     end
