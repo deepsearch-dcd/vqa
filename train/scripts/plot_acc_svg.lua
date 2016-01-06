@@ -54,7 +54,7 @@ local maxtracc = 0
 local maxttacc = 0
 for i=1,epoch:size(1) do
   if tt_score[i] > maxttacc then
-  	maxepoch = i
+  	maxepoch = epoch[i]
   	maxtracc = tr_score[i]
   	maxttacc = tt_score[i]
   end
