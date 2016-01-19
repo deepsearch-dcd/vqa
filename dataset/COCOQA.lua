@@ -3,9 +3,9 @@
 -- COCOQA = require 'dataset/COCOQA.lua'
 -- trainset, testset, vocab = COCOQA.load_data{
 --      format='table', -- or tensor
---      use_pad_word=false,
---      use_unk_word=true,
---      use_unk_answer=false}
+--      add_pad_word=false,
+--      add_unk_word=true,
+--      add_unk_answer=false}
 --]]
 require 'paths'
 local torch = require 'torch'
