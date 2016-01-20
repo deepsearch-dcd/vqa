@@ -2,22 +2,24 @@ if vqalstm==nil then
   require('..')
 end
 
-function accuracy(pred, gold)
-  return torch.eq(pred, gold):sum() / pred:size(1)
-end
-
 -- read command line arguments
 local cmd = torch.CmdLine()
 cmd:text()
-cmd:text('Training script for VQA on the DAQUAR dataset.')
+cmd:text('Training script for VQA on VQA dataset.')
 cmd:text()
 cmd:text('Options')
-cmd:option('-model','lstm','Model architecture: [lstm, bilstm, rlstm, rnn, rnnsu]')
+cmd:option('-model','lstm','Model architecture: [lstm, bilstm, rlstm, rnn, rnnsu, bow]')
 cmd:option('-layers',1,'Number of layers (ignored for Tree-LSTM)')
 cmd:option('-dim',150,'LSTM memory dimension')
-cmd:option('-epochs',50,'Number of training epochs')
+cmd:option('-im_fea_dim',1024,'image feature dimension')
+cmd:option('-epochs',100,'Number of training epochs')
 cmd:option('-cuda',false,'Using cuda')
 cmd:option('-textonly',false,'Text only')
+cmd:option('-rmdeter',false,'Remove determiner')
+cmd:option('-caption',false,'Use caption')
+cmd:option('-captiononly',false,'Use caption only without question')
+cmd:option('-dataset','COCOQA','Dataset [DAQUAR, COCOQA]')
+cmd:option('-modelclass','LSTMVQA','Model class [LSTMVQA, ConcatVQA]')
 cmd:text()
 local args = cmd:parse(arg)
 
@@ -30,13 +32,21 @@ args.epochs = 50
 args.cuda = true
 args.textonly = true
 --]]
-local vocab_size = 10000
 local emb_dim = 50
 local model_structure = args.model
 local num_epochs = args.epochs
 local cuda = args.cuda
 local textonly = args.textonly
-local model_class = vqalstm.LSTMVQA
+local dataset = args.dataset
+local use_caption = args.caption
+local model_class
+if args.modelclass == 'LSTMVQA' then
+  model_class = vqalstm.LSTMVQA
+elseif args.modelclass == 'ConcatVQA' then
+  model_class = vqalstm.ConcatVQA
+else
+  error('Unknown model class')
+end
 if textonly then
   cmd:log(paths.thisfile() ..'-'.. model_structure .. os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log')
   header('LSTM for VQA with text only')
@@ -46,39 +56,12 @@ else
 end
 
 ---------- load dataset ----------
-print('loading datasets')
-local trainset, testset, vocab = DAQUAR.process_to_table()
-for i=1,trainset.size do
-  trainset.questions[i] = torch.Tensor(trainset.questions[i])
-end
-for i=1,testset.size do
-  testset.questions[i] = torch.Tensor(testset.questions[i])
-end
-
-if cuda then
-  for i=1,trainset.size do
-    trainset.questions[i] = trainset.questions[i]:float():cuda()
-  end
-  for i=1,testset.size do
-    testset.questions[i] = testset.questions[i]:float():cuda()
-  end
-end
-
+local trainset, testset, vocab = loadData(args)
 print('num train = '.. trainset.size)
 print('num test  = '.. testset.size)
 
----------- load features ----------
-if not textonly then
-  print('loading features')
-  feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
-  if cuda then
-    feas = feas:float():cuda()
-  end
-  trainset.imagefeas = feas
-  testset.imagefeas = feas
-end
 ---------- load wordvec ----------
-local vecs = torch.rand(vocab_size, emb_dim)
+local vecs = torch.rand(trainset.nvocab, emb_dim)
 
 ---------- initialize model ----------
 local model = model_class{
@@ -145,12 +128,12 @@ print('best dev score is: '.. best_dev_score)
 ---------- Save model ----------
 local model_save_path
 if textonly then
-  model_save_path = string.format("./done/vqalstm-%s_textonly.l%d.d%d.e%d.c%d-%s.t7", 
-    args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
+  model_save_path = string.format("./done/vqalstm-%s-%s_textonly.l%d.d%d.e%d.c%d-%s.t7", 
+    args.dataset, args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
     os.date('%Y-%m-%dT%H%M%S'))
 else
-  model_save_path = string.format("./done/vqalstm-%s.l%d.d%d.e%d.c%d-%s.t7", 
-    args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
+  model_save_path = string.format("./done/vqalstm-%s-%s.l%d.d%d.e%d.c%d-%s.t7", 
+    args.dataset, args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
     os.date('%Y-%m-%dT%H%M%S'))
 end
 

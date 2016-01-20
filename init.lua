@@ -6,22 +6,23 @@ require('xlua')
 require('cunn')
 --require('sys')
 --require('lfs')
+COCOQA = require 'dataset/COCOQA'
 DAQUAR = require 'dataset/DAQUAR'
 npy4th = require 'npy4th'
+require 'util/Set'
+require 'util/DataLoad'
 
 vqalstm = {}
 
 include('module/fLSTM.lua')
 include('module/fRNN.lua')
 include('module/fRNNSU.lua')
+include('module/fBOW.lua')
 include('model/LSTMVQA.lua')
-
---printf = utils.printf
+include('model/ConcatVQA.lua')
 
 -- global paths (modify if desired)
 --vqalstm.data_dir        = 'data'
---vqalstm.models_dir      = 'trained_models'
---vqalstm.predictions_dir = 'predictions'
 
 -- share module parameters
 function share_params(cell, src)
@@ -47,3 +48,8 @@ function header(s)
 end
 
 header('init function being called ...')
+
+-- some useful functions
+function accuracy(pred, gold) -- both are torch.Tensor
+  return torch.eq(pred, gold):sum() / pred:size(1)
+end

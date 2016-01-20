@@ -6,6 +6,7 @@ cmd:text('Script for plot accuracy v.s. epoch.')
 cmd:text()
 cmd:text('Options')
 cmd:option('-f','train/train_vqalstm.lua-2015-12-01T165953.log','Log file name')
+cmd:option('-p',false,'Plot figure')
 cmd:option('-g',true,'Grid')
 cmd:text()
 
@@ -35,12 +36,30 @@ tr_score = torch.Tensor(tr_score)
 tt_score = torch.Tensor(tt_score)
 
 -- plot
-local svg_file = file_path ..'.svg'
-print('Save figure to: '.. svg_file)
-gnuplot.svgfigure(svg_file)
-gnuplot.plot({'Train Accuracy',epoch,tr_score,'~'}, {'Test Accuracy',epoch,tt_score,'~'})
-gnuplot.xlabel('epoch')
-gnuplot.ylabel('accuracy')
-gnuplot.grid(grid)
-gnuplot.title(file_path)
-gnuplot.plotflush()
+if args.p then
+  local svg_file = file_path ..'.svg'
+  print('Save figure to: '.. svg_file)
+  gnuplot.svgfigure(svg_file)
+  gnuplot.plot({'Train Accuracy',epoch,tr_score,'~'}, {'Test Accuracy',epoch,tt_score,'~'})
+  gnuplot.xlabel('epoch')
+  gnuplot.ylabel('accuracy')
+  gnuplot.grid(grid)
+  gnuplot.title(file_path)
+  gnuplot.plotflush()
+end
+
+-- max test accuracy
+local maxepoch = 1
+local maxtracc = 0
+local maxttacc = 0
+for i=1,epoch:size(1) do
+  if tt_score[i] > maxttacc then
+  	maxepoch = epoch[i]
+  	maxtracc = tr_score[i]
+  	maxttacc = tt_score[i]
+  end
+end
+print('Best test accuracy:')
+print('at epoch '.. maxepoch)
+print('-- train score: '.. maxtracc)
+print('-- test score: '.. maxttacc)
