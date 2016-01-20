@@ -1,6 +1,6 @@
 --[[
 
- Long Short-Term Memory.
+ flexible Long Short-Term Memory.
  treelstm -> vqalstm
 --]]
 

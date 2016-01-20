@@ -4,7 +4,11 @@ function loadData(args)
   if args.dataset == 'DAQUAR' then
     trainset, testset, vocab = DAQUAR.process_to_table()
   elseif args.dataset == 'COCOQA' then
-    trainset, testset, vocab = COCOQA.load_data{format='table', add_pad_word=false, add_unk_word=true, add_unk_answer=false, load_caption=args.caption}
+    if args.caption then
+      trainset, testset, vocab = COCOQA.load_data{format='table', add_pad_word=false, add_unk_word=true, add_unk_answer=false, load_caption=args.capopt}
+    else
+      trainset, testset, vocab = COCOQA.load_data{format='table', add_pad_word=false, add_unk_word=true, add_unk_answer=false}
+    end
     trainset.answers = torch.Tensor(trainset.answers)
     testset.answers = torch.Tensor(testset.answers)
   else
@@ -16,7 +20,7 @@ function loadData(args)
       local captions = trainset.captions[i]
       assert(captions~=nil,'caption nil in: '..i)
       local newques = {}
-      if not args.captiononly then -- QUES
+      if not args.caponly then -- QUES
         local ques = trainset.questions[i]
         for j=1,#ques do
           table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
@@ -36,7 +40,7 @@ function loadData(args)
       local captions = testset.captions[i]
       assert(captions~=nil,'caption nil in: '..i)
       local newques = {}
-      if not args.captiononly then -- QUES
+      if not args.caponly then -- QUES
         local ques = testset.questions[i]
         for j=1,#ques do
           table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
@@ -148,11 +152,11 @@ function loadFea(args)
     feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
   elseif args.dataset == 'COCOQA' then
     if args.im_fea_dim==1000 then
-      feas = npy4th.loadnpy('./feature/COCO-QA/VGG19-1000.npy') -- './feature/COCO-QA/GooLeNet-1000.npy'--'./feature/COCO-QA/GooLeNet-1000-softmax.npy'
+      feas = npy4th.loadnpy('./feature/COCO-QA/GoogLeNet-1000.npy') -- GoogLeNet-1000-softmax.npy GoogLeNet-1000.npy VGG19-1000-softmax.npy VGG19-1000.npy
     elseif args.im_fea_dim==1024 then
-      feas = npy4th.loadnpy('./feature/COCO-QA/GooLeNet-1024.npy')
+      feas = npy4th.loadnpy('./feature/COCO-QA/GoogLeNet-1024.npy')
     elseif args.im_fea_dim==4096 then
-      feas = npy4th.loadnpy('./feature/COCO-QA/VGG19-4096.npy') -- './feature/COCO-QA/VGG19-4096-relu.npy'
+      feas = npy4th.loadnpy('./feature/COCO-QA/VGG19-4096-relu.npy') -- VGG19-4096-relu.npy VGG19-4096.npy
     end
   end
   if args.cuda then
