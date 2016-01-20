@@ -16,16 +16,16 @@ function loadData(args)
       local captions = trainset.captions[i]
       assert(captions~=nil,'caption nil in: '..i)
       local newques = {}
-      for j=1,1 do --1,#captions
-        local cap = captions[j]
-        for k=1,#cap do
-          table.insert(newques, cap[k]) --newques[#newques+1] = cap[k]
-        end
-      end
-      if not args.captiononly then
+      if not args.captiononly then -- QUES
         local ques = trainset.questions[i]
         for j=1,#ques do
           table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
+        end
+      end
+      for j=1,1 do --1,#captions -- CAP
+        local cap = captions[j]
+        for k=1,#cap do
+          table.insert(newques, cap[k]) --newques[#newques+1] = cap[k]
         end
       end
       trainset.questions[i] = newques
@@ -36,16 +36,16 @@ function loadData(args)
       local captions = testset.captions[i]
       assert(captions~=nil,'caption nil in: '..i)
       local newques = {}
-      for j=1,1 do --1,#captions
-        local cap = captions[j]
-        for k=1,#cap do
-          table.insert(newques, cap[k]) --newques[#newques+1] = cap[k]
-        end
-      end
-      if not args.captiononly then
+      if not args.captiononly then -- QUES
         local ques = testset.questions[i]
         for j=1,#ques do
           table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
+        end
+      end
+      for j=1,1 do --1,#captions -- CAP
+        local cap = captions[j]
+        for k=1,#cap do
+          table.insert(newques, cap[k]) --newques[#newques+1] = cap[k]
         end
       end
       testset.questions[i] = newques
@@ -148,11 +148,11 @@ function loadFea(args)
     feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
   elseif args.dataset == 'COCOQA' then
     if args.im_fea_dim==1000 then
-      feas = npy4th.loadnpy('./feature/COCO-QA/GooLeNet-1000-softmax.npy')
+      feas = npy4th.loadnpy('./feature/COCO-QA/VGG19-1000.npy') -- './feature/COCO-QA/GooLeNet-1000.npy'--'./feature/COCO-QA/GooLeNet-1000-softmax.npy'
     elseif args.im_fea_dim==1024 then
       feas = npy4th.loadnpy('./feature/COCO-QA/GooLeNet-1024.npy')
     elseif args.im_fea_dim==4096 then
-      feas = npy4th.loadnpy('./feature/COCO-QA/VGG19-4096-relu.npy')
+      feas = npy4th.loadnpy('./feature/COCO-QA/VGG19-4096.npy') -- './feature/COCO-QA/VGG19-4096-relu.npy'
     end
   end
   if args.cuda then
