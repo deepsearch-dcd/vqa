@@ -48,3 +48,15 @@ Chop the dataset to the given `size`. This is useful when check the model.
 
 ## lookup(indices, table)
 Lookup Table. `indices` is a list of index, `lookup` replace the i-th index `indices[i]` with `table[indices[i]]`.
+
+# DataLoad.lua
+
+This needs [npy4th](https://github.com/htwaijry/npy4th)
+
+```
+git clone https://github.com/htwaijry/npy4th.git
+
+cd npy4th
+
+luarocks make
+```
