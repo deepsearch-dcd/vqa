@@ -70,6 +70,10 @@ function util.split_word(str)
         return split(str, '%S+')
 end
 
+function util.split_word_with_punc(str)
+    return split(str, '[^%s,?";!]+')
+end
+
 function util.start_with(str, head)
 	escapes = {'%(', '%)', '%.', '%+', '%-', '%*', '%?', '%[', '%^', '%$'}
 	head = string.gsub(head, '%%', '%%%%')
@@ -99,8 +103,9 @@ end
 -- Convert [dataset] into cuda mode
 function util.to_cuda(dataset)
 	for k, v in pairs(dataset) do
-		if type(v) == 'userdata' then
-			pcall(function() dataset[k] = dataset[k]:float():cuda() end)
+		if string.find(string.lower(torch.type(v)), 'tensor') then
+			--pcall(function() dataset[k] = dataset[k]:float():cuda() end)
+            dataset[k] = dataset[k]:float():cuda()
 		end
 	end
 	return dataset
@@ -160,20 +165,53 @@ function util.assemble(ids, vocab)
     return out
 end
 
+-- the another version of assemble deal with table
 function util.index_data(data, vocab, unk_data)
     if #data == 0 then return end
     for i,sub_data in ipairs(data) do
         if type(sub_data) == 'table' then
             util.index_data(sub_data, vocab, unk_data)
         else
-            if vocab[sub_data] ~= nil then
-                data[i] = vocab[sub_data]
-            else
+            data[i] = vocab[sub_data]
+            if data[i] == nil then
                 assert(vocab[unk_data] ~= nil)
                 data[i] = vocab[unk_data]
             end
         end
     end
+end
+
+function util.load_emb(emb_path)
+    local embs = torch.load(emb_path)
+    local word_to_emb = embs.word_to_index
+    for w, i in pairs(word_to_emb) do
+        word_to_emb[w] = embs.index_to_emb[i]
+    end
+    return word_to_emb
+end
+
+local function _to_emb(word_to_emb, words)
+    for k, v in pairs(words) do
+        if type(v) ~= 'table' then
+            assert(type(v) == 'string')
+            words[k] = word_to_emb[v]
+            if not v then
+                words[k] = word_to_emb['*unk*']
+            end
+        else
+            _to_emb(word_to_emb, v)
+        end
+    end
+end
+
+-- replace the word in the table `words` with its embedding, 
+-- `words` can have sub table. If a word is unknown use the embedding of *unk*.
+function util.to_emb(emb_path, words)
+   local word_to_emb = util.load_emb(emb_path) 
+   assert(word_to_emb['*unk*'])
+   assert(type(words) == 'table')
+   _to_emb(word_to_emb, words)
+   return words
 end
 
 return util
