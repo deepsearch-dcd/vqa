@@ -3,9 +3,11 @@ done/
 word_embedding/
 dataset/data/
 feature/
+omit/
 *.pyc
 *.swp
 *.t7
+train/log/README.md
 
 # copy file from https://github.com/github/gitignore/blob/master/Lua.gitignore
 

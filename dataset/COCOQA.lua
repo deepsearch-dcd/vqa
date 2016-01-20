@@ -161,6 +161,7 @@ end
 local function add_statistic(dataset, vocab)
     
     dataset.nsample = #dataset.questions
+    dataset.size = dataset.nsample -- lin
     dataset.nimage = #vocab.index_to_image
     dataset.nvocab = #vocab.index_to_word
     dataset.nanswer = #vocab.index_to_answer

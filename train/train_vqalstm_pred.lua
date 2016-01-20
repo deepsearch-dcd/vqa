@@ -2,28 +2,34 @@ if vqalstm==nil then
   require('..')
 end
 
-function accuracy(pred, gold)
-  return torch.eq(pred, gold):sum() / pred:size(1)
-end
-
 -- read command line arguments
 local cmd = torch.CmdLine()
 cmd:text()
-cmd:text('Training script for VQA on the DAQUAR dataset.')
+cmd:text('Prediction script for VQA on VQA dataset.')
 cmd:text()
 cmd:text('Options')
-cmd:option('-mpath','done/vqalstm-rnn_textonly.l1.d150.e37.c1-2015-12-04T081911.t7','Model path')
+cmd:option('-mpath','done/vqalstm-DAQUAR-rnn_textonly.l1.d150.e37.c1-2015-12-04T081911.t7','Model path')
 cmd:option('-testnum',20,'Test sample number')
+cmd:option('-im_fea_dim',1024,'image feature dimension')
+cmd:option('-rmdeter',false,'Remove determiner')
+cmd:option('-caption',false,'Use caption')
 cmd:text()
 local args = cmd:parse(arg)
 
 ---------- Load model ----------
 local testnum = args.testnum
 local model_save_path = args.mpath
-local cuda = string.find(model_save_path, 'c1') and true or false
-local textonly = string.find(model_save_path, 'textonly') and true or false
+args.cuda = string.find(model_save_path, 'c1') and true or false
+args.textonly = string.find(model_save_path, 'textonly') and true or false
+if string.find(model_save_path, 'DAQUAR') then
+  args.dataset = 'DAQUAR'
+elseif string.find(model_save_path, 'COCOQA') then
+  args.dataset = 'COCOQA'
+else
+  args.dataset = 'DAQUAR'
+end
 local model_class = vqalstm.LSTMVQA
-if textonly then
+if args.textonly then
   header('LSTM for VQA with text only')
 else
   header('LSTM for VQA')
@@ -36,37 +42,9 @@ local model = model_class.load(model_save_path)
 --model:save(model_save_path)
 
 ---------- load dataset ----------
-print('loading datasets')
-local trainset, testset, vocab = DAQUAR.process_to_table()
-for i=1,trainset.size do
-  trainset.questions[i] = torch.Tensor(trainset.questions[i])
-end
-for i=1,testset.size do
-  testset.questions[i] = torch.Tensor(testset.questions[i])
-end
-
-if cuda then
-  for i=1,trainset.size do
-    trainset.questions[i] = trainset.questions[i]:float():cuda()
-  end
-  for i=1,testset.size do
-    testset.questions[i] = testset.questions[i]:float():cuda()
-  end
-end
-
+local trainset, testset, vocab = loadData(args)
 print('num train = '.. trainset.size)
 print('num test  = '.. testset.size)
-
----------- load features ----------
-if not textonly then
-  print('loading features')
-  feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
-  if cuda then
-    feas = feas:float():cuda()
-  end
-  trainset.imagefeas = feas
-  testset.imagefeas = feas
-end
 
 ---------- print information ----------
 header('model configuration')
