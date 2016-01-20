@@ -257,16 +257,24 @@ function COCOQA.load_data(settings)
 
     local train_captions, test_captions = nil, nil
     if settings.load_caption then
+        local gap
         if settings.load_caption == 'origin' then
-            -- align captions to images
-            local cap_ = {}
-            for i = 1,#captions,5 do
-                table.insert(cap_, {captions[i], captions[i+1], captions[i+2],
-                                       captions[i+3], captions[i+4]})
-            end
-            assert(#cap_ == #vocab.index_to_image)
-            captions = cap_
+            gap = 5
+        elseif settings.load_caption == 'generate' then
+            gap = 1
         end
+            
+        -- align captions to images
+        local cap_ = {}
+        for i = 1,#captions,gap do
+            _cap_tuple = {}
+            for j=0,gap-1 do
+                table.insert(_cap_tuple, captions[i+j])
+            end
+            table.insert(cap_, _cap_tuple)
+        end
+        assert(#cap_ == #vocab.index_to_image)
+        captions = cap_
 
         -- duplicat captions to make captions match questions
         train_captions = dup_cap(captions, train_images)
