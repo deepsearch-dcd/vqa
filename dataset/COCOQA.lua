@@ -33,7 +33,9 @@ local TYPE_TO_INDEX = {object=1, number=2, color=3, location=4}
 local INDEX_TO_TYPE = {[1]='object', [2]='number', [3]='color', [4]='location'}
 
 -- captions file
-local CAPTIONS_FILE = 'dataset/data/COCO-QA/done/captions.txt'
+local ORIGIN_CAPTIONS_FILE = 'dataset/data/COCO-QA/done/captions.txt'
+local GENERATED_CAPTIONS_FILE = 
+    'dataset/data/COCO-QA/done/captions_neuraltalk2_samplemax.txt'
 
 -- determiner
 local DETERMINER = {
@@ -85,9 +87,9 @@ local function process_raw(file_dir)
 end
 
 
-local function process_caption()
+local function process_caption(source)
         
-    local f = assert(io.open(CAPTIONS_FILE, 'r'))
+    local f = assert(io.open(source, 'r'))
     local lines = util.split_line(f:read('*all'))
     f:close()
 
@@ -189,7 +191,8 @@ function COCOQA.load_data(settings)
     -- add_unk_answer: if true treat unseen answer in testset as UNK_WORD
     -- max_length
     -- discard_det: if true discard the words in DETERMINER from questions
-    -- load_caption: if true, load caption additionally
+    -- load_caption: nil, do nothing; 'origin', load caption from ms coco;
+    --               'generate', load caption from generated caption source.
 
     -- load raw data
     local train_images , train_questions, train_answers, train_types = 
@@ -197,8 +200,10 @@ function COCOQA.load_data(settings)
     local test_images, test_questions, test_answers, test_types = 
         process_raw(TEST_DIR)
     local captions = {}
-    if settings.load_caption then
-        captions = process_caption()
+    if settings.load_caption == 'origin' then
+        captions = process_caption(ORIGIN_CAPTIONS_FILE)
+    elseif settings.load_caption == 'generate' then
+        captions = process_caption(GENERATED_CAPTIONS_FILE)
     end
 
     if settings.discard_det == true then
@@ -251,18 +256,21 @@ function COCOQA.load_data(settings)
 
     local train_captions, test_captions = nil, nil
     if settings.load_caption then
-        -- align captions to images
-        local cap_ = {}
-        for i = 1,#captions,5 do
-            table.insert(cap_, {captions[i], captions[i+1], captions[i+2],
-                                   captions[i+3], captions[i+4]})
+        if settings.load_caption == 'origin' then
+            -- align captions to images
+            local cap_ = {}
+            for i = 1,#captions,5 do
+                table.insert(cap_, {captions[i], captions[i+1], captions[i+2],
+                                       captions[i+3], captions[i+4]})
+            end
+            assert(#cap_ == #vocab.index_to_image)
+            captions = cap_
         end
-        assert(#cap_ == #vocab.index_to_image)
 
         -- duplicat captions to make captions match questions
-        train_captions = dup_cap(cap_, train_images)
+        train_captions = dup_cap(captions, train_images)
         assert(#train_captions == #train_questions)
-        test_captions = dup_cap(cap_, test_images)
+        test_captions = dup_cap(captions, test_images)
         assert(#test_captions == #test_questions)
     end
 
