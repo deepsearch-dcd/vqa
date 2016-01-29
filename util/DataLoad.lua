@@ -20,16 +20,16 @@ function loadData(args)
       local captions = trainset.captions[i]
       assert(captions~=nil,'caption nil in: '..i)
       local newques = {}
-      if not args.caponly then -- QUES
-        local ques = trainset.questions[i]
-        for j=1,#ques do
-          table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
-        end
-      end
       for j=1,1 do --1,#captions -- CAP
         local cap = captions[j]
         for k=1,#cap do
           table.insert(newques, cap[k]) --newques[#newques+1] = cap[k]
+        end
+      end
+      if not args.caponly then -- QUES
+        local ques = trainset.questions[i]
+        for j=1,#ques do
+          table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
         end
       end
       trainset.questions[i] = newques
@@ -40,16 +40,16 @@ function loadData(args)
       local captions = testset.captions[i]
       assert(captions~=nil,'caption nil in: '..i)
       local newques = {}
-      if not args.caponly then -- QUES
-        local ques = testset.questions[i]
-        for j=1,#ques do
-          table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
-        end
-      end
       for j=1,1 do --1,#captions -- CAP
         local cap = captions[j]
         for k=1,#cap do
           table.insert(newques, cap[k]) --newques[#newques+1] = cap[k]
+        end
+      end
+      if not args.caponly then -- QUES
+        local ques = testset.questions[i]
+        for j=1,#ques do
+          table.insert(newques, ques[j]) --newques[#newques+1] = ques[j]
         end
       end
       testset.questions[i] = newques

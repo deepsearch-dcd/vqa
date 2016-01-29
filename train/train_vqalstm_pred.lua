@@ -163,6 +163,6 @@ for k=1,testnum do
   print('--Answer: '.. vocab.index_to_answer[ans])
   print('--Predict: '.. vocab.index_to_answer[pre])
   print('--Picture: '.. 
-    string.format('train2014/COCO_train2014_%012d', 
+    string.format('val2014/COCO_val2014_%012d', 
       tonumber(vocab.index_to_image[testset.images[i]])))
 end
