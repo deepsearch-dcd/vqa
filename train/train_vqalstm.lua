@@ -23,6 +23,7 @@ cmd:option('-dataset','COCOQA','Dataset [DAQUAR, COCOQA]')
 cmd:option('-modelclass','LSTMVQA','Model class [LSTMVQA, ConcatVQA]')
 cmd:text()
 local args = cmd:parse(arg)
+print(cmd:string(paths.thisfile(), args, {dir=true}))
 
 --[[
 local args = {}
@@ -49,10 +50,12 @@ else
   error('Unknown model class')
 end
 if textonly then
-  cmd:log(paths.thisfile() ..'-'.. model_structure .. os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log')
+  cmd:log(paths.thisfile() ..'-'.. model_structure .. 
+    os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log', args)
   header('LSTM for VQA with text only')
 else
-  cmd:log(paths.thisfile() ..'-'.. model_structure .. os.date('-%Y-%m-%dT%H%M%S') ..'.log')
+  cmd:log(paths.thisfile() ..'-'.. model_structure .. 
+    os.date('-%Y-%m-%dT%H%M%S') ..'.log', args)
   header('LSTM for VQA')
 end
 
