@@ -142,7 +142,7 @@ function loadData(args)
     testset.imagefeas = feas
   end
 
-  return trainset, testset, vocablo
+  return trainset, testset, vocab
 end
 
 function loadFea(args)
