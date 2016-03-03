@@ -21,13 +21,13 @@ def lmdb2npy(src, dst):
 				datum = caffe.proto.caffe_pb2.Datum()
 				datum.ParseFromString(cur.value())
 				array = caffe.io.datum_to_array(datum)
-				data.append(np.reshape(array, mul(np.shape(array))))
+				data.append(array)
 				count += 1
 				if count % 1000 == 0:
 					print "process %d files" % count
 	if count % 1000:
 		print "process %d files" % count
-	data = np.array(data)
+	data = np.squeeze(np.array(data))
 	assert(len(data) == env.stat()['entries'])
 	np.save(dst, data)
 
