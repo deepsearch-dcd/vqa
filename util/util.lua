@@ -144,7 +144,6 @@ function util.assemble(ids, vocab)
     if #vocab:size() == 1 then
         vocab = vocab:view(-1,1)
     end
-    assert(#vocab:size() == 2)
 
     -- get creator
     local Tensor = ids.new
@@ -152,12 +151,18 @@ function util.assemble(ids, vocab)
 
     -- allocate the output tensor
     local out_size = ids:size():totable()
-    table.insert(out_size, vocab:size(2))
+    local flat_out_size = {ids:nElement()}
+    for i, dim in ipairs(vocab:size():totable()) do
+        if i > 1 then
+            table.insert(out_size, dim)
+            table.insert(flat_out_size, dim)
+        end
+    end
     local out = Tensor(Storage(out_size))
 
     -- start assembling
     local flat_ids = ids:view(-1)
-    local flat_out = out:view(ids:nElement(), vocab:size(2))
+    local flat_out = out:view(Storage(flat_out_size))
     
     for i = 1, flat_ids:size(1) do
         flat_out[i] = vocab[flat_ids[i]]
