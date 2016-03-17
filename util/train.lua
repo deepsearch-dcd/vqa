@@ -64,7 +64,7 @@ end
 
 -- log evaluation result
 local function log(tag, epoch, iter, loss, min_loss, acc, max_acc)
-    local LOG_FORMAT = '(%s)Epoch %d, Iteration %d, loss = %.2f(%.2f), acc = %.2f(%.2f)'
+    local LOG_FORMAT = '(%s)Epoch %d, Iteration %d, loss = %.4f(%.4f), acc = %.4f(%.4f)'
     print(string.format(LOG_FORMAT, tag, epoch, iter, loss, min_loss, acc, max_acc))
 end
 
@@ -174,6 +174,11 @@ function train(opt, model, criterion, trainset, testset)
         end
     end
 
+    -- load pretrained_model
+    if opt.pretrained_model then
+        print('load pretrained model from ' .. opt.pretrained_model)
+        model = torch.load(opt.pretrained_model)
+    end
     -- if in gpu mode, convert model and criterion to cuda type
     if opt.gpuid >= 0 then
         model = model:cuda()
@@ -235,9 +240,9 @@ function train(opt, model, criterion, trainset, testset)
         os.execute('mkdir -p "' .. opt.cp_dir .. '"')
     end
 
+    local function loop()
     -- loop epoch
     while true do
-
         -- current epoch
         nepoch = nepoch + 1
 
@@ -246,17 +251,16 @@ function train(opt, model, criterion, trainset, testset)
 
         -- loop iteration per epoch
         for i = 1, iters_per_epoch do
-
             -- current iteration
             niter = niter + 1
            
             -- create closure to evaluate f(x) and df/dx
             local feval = function(new_params)
-
                 -- get new parameters
                 if new_params ~= parameters then
                     parameters:copy(new_params)
                 end
+                model:training()
                 
                 -- get data
                 -- x, t = unpack(trainset[i])
@@ -326,6 +330,7 @@ function train(opt, model, criterion, trainset, testset)
             epoch_confusion:zero()
 
             if testset then
+                model:evaluate()
                 -- display testset evaluation result
                 local test_loss, test_acc = test(model, criterion, testset, opt.batch_size and opt.batch_size > 1, opt.blind)
                 min_test_loss = get_min(min_test_loss, test_loss)
@@ -354,6 +359,18 @@ function train(opt, model, criterion, trainset, testset)
         -- meet max_epoch ?
         if opt.max_epoch and nepoch >= opt.max_epoch then
             break
+        end
+    end
+    end
+    local status, err = pcall(loop)
+    if not status then
+        if string.find(err, 'interrupted!') and opt.cp_dir then
+            local save_path = paths.concat(
+                opt.cp_dir, gen_log_name() .. '.interrupted')
+            print('\rsave model to ' .. save_path)
+            torch.save(save_path, model)
+        else
+            print(err)
         end
     end
     if not opt.quiet then
