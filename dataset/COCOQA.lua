@@ -51,7 +51,6 @@ local DETERMINER = {
 -- Read from file and save in table.
 --]]
 local function process_raw(file_dir)
-    
     local function read_file(fname)
         local f = assert(io.open(fname, 'r'))
         local file_content = f:read('*all')
@@ -83,12 +82,10 @@ local function process_raw(file_dir)
     assert(#answers == #types)
 
     return images, questions, answers, types
-
 end
 
 
 local function process_caption(source)
-        
     local f = assert(io.open(source, 'r'))
     local lines = util.split_line(f:read('*all'))
     f:close()
@@ -108,12 +105,10 @@ local function process_caption(source)
         cap[#cap] = string.gsub(cap[#cap], '(.-)%p$', '%1')
     end
     return captions
-
 end
 
 
 local function discard_word(questions, discarded)
-    
     local new_questions = {}
     for i,q in ipairs(questions) do
         new_questions[i] = {}
@@ -126,12 +121,10 @@ local function discard_word(questions, discarded)
         end
     end
     return new_questions
-
 end
 
 
 local function pad_or_chop(questions, max_length, pad_word)
-
     for _,q in ipairs(questions) do
         len = #q
         if len <= max_length then
@@ -145,7 +138,6 @@ local function pad_or_chop(questions, max_length, pad_word)
         end
         assert(#q == max_length)
     end
-    
 end
 
 
@@ -159,18 +151,15 @@ end
 
 
 local function add_statistic(dataset, vocab)
-    
     dataset.nsample = #dataset.questions
     dataset.size = dataset.nsample -- lin
     dataset.nimage = #vocab.index_to_image
     dataset.nvocab = #vocab.index_to_word
     dataset.nanswer = #vocab.index_to_answer
-
 end
 
 
 local function format_tensor(dataset)
-    
     local Tensor = torch.Tensor
     dataset.images = Tensor(dataset.images)
     dataset.questions = Tensor(dataset.questions)
@@ -179,7 +168,6 @@ local function format_tensor(dataset)
     if dataset.captions ~= nil then
         dataset.captions = Tensor(dataset.captions)
     end
-
 end
 
 
@@ -194,6 +182,8 @@ function COCOQA.load_data(settings)
     -- discard_det: if true discard the words in DETERMINER from questions
     -- load_caption: nil, do nothing; 'origin', load caption from ms coco;
     --               'generate', load caption from generated caption source.
+    -- top_word: if not nil, collect the top [top_word] words as the word 
+    --              vocabulary.
 
     -- load raw data
     local train_images , train_questions, train_answers, train_types = 
@@ -223,14 +213,46 @@ function COCOQA.load_data(settings)
         util.extract_vocab(train_answers)
     vocab['type_to_index'], vocab['index_to_type'] = 
         TYPE_TO_INDEX, INDEX_TO_TYPE
+
+    if settings.top_word then
+        -- build word_and_count table
+        local word_and_count = {}
+        for index, word in ipairs(vocab.index_to_word) do
+            word_and_count[word] = 0
+        end
+        -- count words
+        for i, q in ipairs(train_questions) do
+            for j, w in ipairs(q) do
+                word_and_count[w] = word_and_count[w] + 1
+            end
+        end
+        -- sort by count
+        local word_by_count = {}
+        for word, count in pairs(word_and_count) do
+            table.insert(word_by_count, {word,count})
+        end
+        table.sort(word_by_count, function(a,b)
+                                    return a[2] > b[2]
+                                  end)
+        local index_to_word, word_to_index = {}, {}
+        for i=1,settings.top_word do
+            index_to_word[i] = word_by_count[i][1]
+            word_to_index[word_by_count[i][1]] = i
+        end
+        vocab.index_to_word = index_to_word
+        vocab.word_to_index = word_to_index
+    end
+    
     if settings.add_unk_word then
         table.insert(vocab.index_to_word, UNK_WORD)
         vocab.word_to_index[UNK_WORD] = #vocab.index_to_word
     end
+
     if settings.add_pad_word then
         table.insert(vocab.index_to_word, PAD_WORD)
         vocab.word_to_index[PAD_WORD] = #vocab.index_to_word
     end
+
     if settings.add_unk_answer then
         table.insert(vocab.index_to_answer, UNK_WORD)
         vocab.answer_to_index[UNK_WORD] = #vocab.index_to_answer
@@ -238,7 +260,7 @@ function COCOQA.load_data(settings)
 
     -- index data
     util.index_data(train_images, vocab.image_to_index)
-    util.index_data(train_questions, vocab.word_to_index)
+    util.index_data(train_questions, vocab.word_to_index, UNK_WORD)
     util.index_data(train_answers, vocab.answer_to_index)
     util.index_data(test_images, vocab.image_to_index)
     util.index_data(test_questions, vocab.word_to_index, UNK_WORD)
@@ -309,7 +331,6 @@ function COCOQA.load_data(settings)
     end
 
     return trainset, testset, vocab
-
 end
 
 return COCOQA
