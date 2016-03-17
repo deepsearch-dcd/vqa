@@ -106,7 +106,9 @@ function util.to_cuda(dataset)
 		if string.find(string.lower(torch.type(v)), 'tensor') then
 			--pcall(function() dataset[k] = dataset[k]:float():cuda() end)
             dataset[k] = dataset[k]:float():cuda()
-		end
+        elseif torch.type(v) == 'table' then
+            util.to_cuda(dataset[k])
+        end
 	end
 	return dataset
 end
