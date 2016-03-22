@@ -4,9 +4,8 @@ require 'paths'
 require 'util/Plotter'
 local util = require 'util/util'
 
--- generate a log file name
--- this function can just run in linux.
-local function gen_log_name()
+-- generate a fingerprint for current running
+local function get_fingerprint()
     -- get hostname
     local f = io.popen('/bin/hostname')
     local hostname = f:read() or 'unknown-hostname'
@@ -113,11 +112,11 @@ end
    the keyword of the opt:
     `opt.seed`              option[1234]
     `opt.gpuid`             option[0]
+    `opt.test`              option[nil]
     `opt.home_dir`          option[nil]             if given, prefix to log_dir, plot_dir and cp_dir
     `opt.log_dir`           option[nil]
-    `opt.plot_dir`          option['done']
+    `opt.plot_dir`          option[nil]
     `opt.cp_dir`            option['done']
-    `opt.tag`               option[default]         distinguish different training
     `opt.display_interval`  option[nil]
     `opt.quiet`             option[false]
     `opt.max_epoch`         option[infinite]
@@ -145,19 +144,20 @@ function train(opt, model, criterion, trainset, testset)
             opt.cp_dir = concat(opt.home_dir, opt.cp_dir)
         end
     end
-    opt.plot_dir = opt.plot_dir or 'done'
-    opt.tag = opt.tag or 'default'
     opt.cp_dir = opt.cp_dir or 'done'
-    mkdir(opt.plot_dir)
     if opt.check_point then
         mkdir(opt.cp_dir)
+    end
+    opt.fingerprint = get_fingerprint()
+    if opt.test then
+        opt.fingerprint = 'test.' .. opt.fingerprint
     end
 
     -- trigger loging
     if opt.log_dir then
         mkdir(opt.log_dir)
         local cmd = torch.CmdLine()
-        local log_name = gen_log_name()
+        local log_name = opt.fingerprint
         cmd:log(paths.concat(opt.log_dir, log_name), opt)
         cmd:addTime('vqa', '%F %T')
     end
@@ -230,8 +230,12 @@ function train(opt, model, criterion, trainset, testset)
     end
 
     -- plot tools
-    local acc_plotter = get_plotter(opt.plot_dir, 'acc', opt.tag)
-    local loss_plotter = get_plotter(opt.plot_dir, 'loss', opt.tag)
+    local acc_plotter, loss_plotter
+    if opt.plot_dir then
+        mkdir(opt.plot_dir)
+        acc_plotter = get_plotter(opt.plot_dir, 'acc', opt.fingerprint)
+        loss_plotter = get_plotter(opt.plot_dir, 'loss', opt.fingerprint)
+    end
 
     local function loop()
     -- loop epoch
@@ -291,9 +295,11 @@ function train(opt, model, criterion, trainset, testset)
                 log('train#1', nepoch, niter, train_loss, 0, 
                     iter_confusion.totalValid, 0)
                 
-                acc_plotter:add{['train iteration'] = 
-                    {niter, iter_confusion.totalValid}}
-                loss_plotter:add{['train iteration'] = {niter, train_loss}}
+                if opt.plot_dir then
+                    acc_plotter:add{['train iteration'] = 
+                        {niter, iter_confusion.totalValid}}
+                    loss_plotter:add{['train iteration'] = {niter, train_loss}}
+                end
                 
                 iter_loss = 0
                 iter_confusion:zero()
@@ -308,9 +314,11 @@ function train(opt, model, criterion, trainset, testset)
             max_train_acc = get_max(max_train_acc, epoch_confusion.totalValid)
             log('train#2', nepoch, niter, train_loss, min_train_loss, 
                 epoch_confusion.totalValid, max_train_acc)
-            acc_plotter:add{['train epoch'] = {niter, 
+            if opt.plot_dir then
+                acc_plotter:add{['train epoch'] = {niter, 
                                                epoch_confusion.totalValid}}
-            loss_plotter:add{['train epoch'] = {niter, train_loss}}
+                loss_plotter:add{['train epoch'] = {niter, train_loss}}
+            end
             epoch_loss = 0
             epoch_confusion:zero()
 
@@ -322,12 +330,16 @@ function train(opt, model, criterion, trainset, testset)
                 max_test_acc = get_max(max_test_acc, test_acc)
                 log('test#2', nepoch, niter, test_loss, min_test_loss, 
                     test_acc, max_test_acc)
-                acc_plotter:add{['test epoch'] = {niter, test_acc}}
-                loss_plotter:add{['test epoch'] = {niter, test_loss}}
+                if opt.plot_dir then
+                    acc_plotter:add{['test epoch'] = {niter, test_acc}}
+                    loss_plotter:add{['test epoch'] = {niter, test_loss}}
+                end
             end
 
-            acc_plotter:plot()
-            loss_plotter:plot()
+            if opt.plot_dir then
+                acc_plotter:plot()
+                loss_plotter:plot()
+            end
         end
 
         -- check point 
@@ -348,7 +360,7 @@ function train(opt, model, criterion, trainset, testset)
     if not status then
         if string.find(err, 'interrupted!') and opt.cp_dir then
             local save_path = paths.concat(
-                opt.cp_dir, gen_log_name() .. '.interrupted')
+                opt.cp_dir, opt.fingerprint .. '.interrupted')
             print('\rsave model to ' .. save_path)
             torch.save(save_path, model)
         else
