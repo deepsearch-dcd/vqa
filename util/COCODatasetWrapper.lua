@@ -12,7 +12,10 @@ local util = require 'util/util'
 --                  up each a time in next().
 local function COCODatasetWrapper(dataset, imageFeatures, disability, cacheFeature)
     assert(dataset)
-    assert(imageFeatures)
+    assert(imageFeatures or (disability == 'blind'))
+    assert((not disability) or (disability == 'blind') 
+            or (disability == 'deaf'))
+    assert((not cacheFeature) or (cacheFeature and imageFeatures))
 
     local Tensor = torch.Tensor
     dataset.images = Tensor(dataset.images)
@@ -43,8 +46,6 @@ local function COCODatasetWrapper(dataset, imageFeatures, disability, cacheFeatu
         end
         return self.images[index], self.questions[index], self.answers[index]
     end
-    assert((not disability) or (disability == 'blind') 
-            or (disability == 'deaf'))
     if disability == 'blind' then
         function dataset:next()
             local _, Q, A = dataset:_next()
