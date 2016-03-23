@@ -199,6 +199,12 @@ function train(opt, model, criterion, trainset, testset)
         end
     end
 
+    if opt.pretrained_model and testset then
+        local loss, acc = test(model, criterion, testset)
+        log('test#2', 0, 0, loss, 0, acc, 0)
+    end
+
+
     -- get parameters and gradients from model
     local parameters, gradParameters = model:getParameters()
     
