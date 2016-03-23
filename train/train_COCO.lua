@@ -43,16 +43,16 @@ end
 print('load image features..')
 local im_feas
 if not DEBUG then
-    im_feas = npy4th.loadnpy('feature/COCO-QA/VGG19-1000.npy')
+    --im_feas = npy4th.loadnpy('feature/COCO-QA/VGG19-1000.npy')
     --im_feas = npy4th.loadnpy('feature/COCO-QA/VGG19-512x14x14.npy')
 else
-    im_feas = torch.rand(10, 1000)
+    --im_feas = torch.rand(10, 1000)
     --im_feas = torch.rand(10, 512, 14, 14)
 end
 
 local wrap = require 'util/COCODatasetWrapper'
-wrap(trainset, im_feas, 'blind', true)
-wrap(testset, im_feas, 'blind', true)
+wrap(trainset, nil, 'blind', false)
+wrap(testset, nil, 'blind', false)
 
 -- model
 print('create model..')
@@ -72,15 +72,15 @@ opt = {
     log_dir = '',
     plot_dir = '',
     cp_dir = '',
-    tag = 'default',
+    tag = 'Max',
     display_interval = 10000,
     quiet = false,
     --max_epoch = 1,
     batch_size = 1,
-    learningRate = 0.001,
+    learningRate = 0.01,
     weightDecay = 0.0005,
     momentum = 0.9,
-    --check_point = 1,
+    check_point = 1,
     --pretrained_model = '',
     model_def = '\n' .. model_file,
 }

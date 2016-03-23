@@ -53,7 +53,7 @@ local function get_info_from_output(model, dataset)
 end
 
 -- evaluate model on the given testset
-local function test(model, criterion, testset)
+function test(model, criterion, testset)
     
     local batch_size, nanswer = get_info_from_output(model, testset)
     
@@ -117,6 +117,7 @@ end
     `opt.log_dir`           option[nil]
     `opt.plot_dir`          option[nil]
     `opt.cp_dir`            option['done']
+    `opt.tag                option[nil]
     `opt.display_interval`  option[nil]
     `opt.quiet`             option[false]
     `opt.max_epoch`         option[infinite]
@@ -149,6 +150,9 @@ function train(opt, model, criterion, trainset, testset)
         mkdir(opt.cp_dir)
     end
     opt.fingerprint = get_fingerprint()
+    if opt.tag then
+        opt.fingerprint = opt.tag .. '.' .. opt.fingerprint
+    end
     if opt.test then
         opt.fingerprint = 'test.' .. opt.fingerprint
     end
@@ -343,10 +347,10 @@ function train(opt, model, criterion, trainset, testset)
         end
 
         -- check point 
-        if opt.check_piont and nepoch % opt.check_point == 0 then
-            local cp_name = get_log_name() .. '.epoch' .. nepoch
+        if opt.check_point and nepoch % opt.check_point == 0 then
+            local cp_name = opt.fingerprint .. '.epoch' .. nepoch
             cp_name = paths.concat(opt.cp_dir, cp_name)
-            torch.save(cp_name, {opt, model})
+            torch.save(cp_name, model)
             print('save model to ' .. cp_name)
         end
 
