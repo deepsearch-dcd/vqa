@@ -168,6 +168,10 @@ local function format_tensor(dataset)
     if dataset.captions ~= nil then
         dataset.captions = Tensor(dataset.captions)
     end
+
+    if dataset.tfidfs then
+        dataset.tfidfs = Tensor(dataset.tfidfs)
+    end
 end
 
 
@@ -184,6 +188,8 @@ function COCOQA.load_data(settings)
     --               'generate', load caption from generated caption source.
     -- top_word: if not nil, collect the top [top_word] words as the word 
     --              vocabulary.
+    -- tfidf: if given, compute tf-idf for each word in question.
+    -- bow: if given, the question is represented as BoW form.
 
     -- load raw data
     local train_images , train_questions, train_answers, train_types = 
@@ -323,8 +329,72 @@ function COCOQA.load_data(settings)
     add_statistic(trainset, vocab)
     add_statistic(testset, vocab)
 
+    -- tf-idf
+    if settings.tfidf then
+        -- idf
+        local idf = torch.zeros(#vocab.index_to_word)
+        local function set(alist)
+            local _set = {}
+            for _, elem in ipairs(alist) do
+                _set[elem] = 0
+            end
+            return _set
+        end
+        for _, q in ipairs(trainset.questions) do
+            for w, _ in pairs(set(q)) do
+                idf[w] = idf[w] + 1
+            end
+        end
+        idf = (idf:cinv()*trainset.nsample):log()
+        
+        -- tf
+        local function get_tfidf(dataset)
+            local tfidfs = {}
+            for i, q in ipairs(dataset.questions) do
+                local tf = set(q)
+                for _, w in ipairs(q) do
+                    tf[w] = tf[w] + 1
+                end
+                for w, c in pairs(tf) do
+                    tf[w] = c/#q
+                end
+                local tfidf = {}
+                for j, w in ipairs(q) do
+                    tfidf[j] = --[[tf[w]*]] idf[w]  -- temporarily remove tf[w] for debug
+                end
+                tfidfs[i] = tfidf
+            end
+            return tfidfs
+        end
+        trainset.tfidfs = get_tfidf(trainset)
+        testset.tfidfs = get_tfidf(testset)
+        vocab.idf = idf
+    end
+
+    if settings.bow then
+        assert(not settings.tfidf) -- the code of this two part are not compatible
+        local function to_bow(dataset)
+            local questions = dataset.questions
+            for i, q in ipairs(questions) do
+                local count = {}
+                for j, w in ipairs(q) do
+                    if not count[w] then
+                        count[w] = 0
+                    end
+                    count[w] = count[w] + 1
+                end
+                local bow = {}
+                for w, c in pairs(count) do
+                    table.insert(bow, {w, c})
+                end
+                questions[i] = bow
+            end
+        end
+        to_bow(trainset)
+        to_bow(testset)
+    end
+
     -- formatting
-    local Tensor = torch.Tensor
     if settings.format == 'tensor' then
         format_tensor(trainset)
         format_tensor(testset)

@@ -10,12 +10,17 @@ local util = require 'util/util'
 --                  ='deaf' next() return (V,Q); not given, next() return ({V,Q},A).
 -- [cacheFeature]    if not given, don't aeemble dataset.images as a whole and look
 --                  up each a time in next().
-local function COCODatasetWrapper(dataset, imageFeatures, disability, cacheFeature)
+local function COCODatasetWrapper(dataset, 
+                                  imageFeatures, 
+                                  disability, 
+                                  cacheFeature,
+                                  tfidf)
     assert(dataset)
     assert(imageFeatures or (disability == 'blind'))
     assert((not disability) or (disability == 'blind') 
             or (disability == 'deaf'))
     assert((not cacheFeature) or (cacheFeature and imageFeatures))
+    assert((not tfidf) or (tfidf and dataset.tfidfs))
 
     local Tensor = torch.Tensor
     dataset.images = Tensor(dataset.images)
@@ -23,6 +28,11 @@ local function COCODatasetWrapper(dataset, imageFeatures, disability, cacheFeatu
         dataset.questions[i] = Tensor(q)
     end
     dataset.answers = Tensor(dataset.answers)
+    if tfidf then
+        for i, t in ipairs(dataset.tfidfs) do
+            dataset.tfidfs[i] = Tensor(t)
+        end
+    end
 
     if cacheFeature then
         dataset.images = util.assemble(dataset.images, imageFeatures)
@@ -44,43 +54,68 @@ local function COCODatasetWrapper(dataset, imageFeatures, disability, cacheFeatu
         if index > self:size() then
             return nil
         end
-        return self.images[index], self.questions[index], self.answers[index]
+        if tfidf then
+            return self.images[index], self.questions[index], 
+                   self.answers[index], self.tfidfs[index]
+        else
+            return self.images[index], self.questions[index], self.answers[index]
+        end
     end
     if disability == 'blind' then
         function dataset:next()
-            local _, Q, A = dataset:_next()
-            return Q, A
+            local _, Q, A, T = dataset:_next()
+            if tfidf then
+                return {Q, T}, A
+            else
+                return Q, A
+            end
         end
     elseif cacheFeature then
         if not disability then
             function dataset:next()
-                local V, Q, A = dataset:_next()
-                return {V, Q}, A
+                local V, Q, A, T = dataset:_next()
+                if tfidf then
+                    return {V, Q, T}, A
+                else
+                    return {V, Q}, A
+                end
             end
         elseif disability == 'deaf' then
             function dataset:next()
-                local V, _, A = dataset:_next()
-                return V, A
+                local V, _, A, T = dataset:_next()
+                if tfidf then
+                    return {V, T}, A
+                else
+                    return V, A
+                end
             end
         end
     else
         if not disability then
             function dataset:next()
-                local V, Q, A = dataset:_next()
+                local V, Q, A, T = dataset:_next()
                 V = imageFeatures[V]
                 if self.cuda then
                     V = V:cuda()
                 end
-                return {V, Q}, A
+                if tfidf then
+                    return {V, Q, T}, A
+                else
+                    return {V, Q}, A
+                end
             end
         elseif disability == 'deaf' then
             function dataset:next()
-                local V, Q, A = dataset:_next()
+                local V, Q, A, T = dataset:_next()
                 V = imageFeatures[V]
                 if self.cuda then
                     V = V:cuda()
                 end
-                return V, A
+                if tfidf then
+                    return {V, T}, A
+                else
+                    return V, A
+                end
             end
         end
     end
@@ -91,6 +126,11 @@ local function COCODatasetWrapper(dataset, imageFeatures, disability, cacheFeatu
             self.questions[i] = q:cuda()
         end
         self.answers = self.answers:cuda()
+        if self.tfidfs then
+            for i, t in ipairs(self.tfidfs) do
+                self.tfidfs[i] = t:cuda()
+            end
+        end
         self.cuda = true
     end
 end
