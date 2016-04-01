@@ -15,6 +15,7 @@ require 'util/DataLoad'
 vqalstm = {}
 
 include('module/fLSTM.lua')
+include('module/fGRU.lua')
 include('module/fRNN.lua')
 include('module/fRNNSU.lua')
 include('module/fBOW.lua')

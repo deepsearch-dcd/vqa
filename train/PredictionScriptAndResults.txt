@@ -1,0 +1,183 @@
+--------------------------------------------------------------------------------
+===== train_vqalstm_pred.lua =====
+--------------------------------------------------------------------------------
+
+th train/train_vqalstm.lua -model lstm -epochs 25 -cuda -textonly -rmdeter -caption
+train/log/train_vqalstm.lua-lstm_textonly-2016-01-25T235059.log
+COCOQA QUES+CAP(LSTM) rmdeter cap1 at epoch 20
+-- train score: 0.81389707376549
+-- test score: 0.647016534867
+./done/vqalstm-COCOQA-lstm_textonly.l1.d150.e20.c1-2016-01-26T133703.t7
+th train/train_vqalstm_pred.lua -mpath done/vqalstm-COCOQA-lstm_textonly.l1.d150.e20.c1-2016-01-26T133703.t7 -rmdeter -caption
+
+th train/train_vqalstm.lua -model lstm -epochs 40 -cuda -textonly -rmdeter -caption -capopt generate
+train/log/train_vqalstm.lua-lstm_textonly-2016-01-26T185714.log
+COCOQA CAP+QUES(LSTM) rmdeter gencap at epoch 22
+-- train score: 0.69942592968909
+-- test score: 0.58942692821197
+./done/vqalstm-COCOQA-lstm_textonly.l1.d150.e22.c1-2016-01-27T171159.t7
+th train/train_vqalstm_pred.lua -mpath done/vqalstm-COCOQA-lstm_textonly.l1.d150.e22.c1-2016-01-27T171159.t7 -rmdeter -caption -capopt generate
+
+--------------------------------------------------------------------------------
+===== Prediction Scripts on testset =====
+--------------------------------------------------------------------------------
+testnum = 10
+tmp = torch.load('done/vqalstm-COCOQA-lstm_textonly.l1.d150.e22.c1-2016-01-27T171159.t7-PRED.t7')
+train_predictions = tmp.train_predictions
+dev_predictions = tmp.dev_predictions
+train_score = tmp.train_score
+dev_score = tmp.dev_score
+args = tmp.args
+
+args.rmdeter = false
+if args.dataset == 'COCOQA' and args.caption then
+  COCOQA = require 'dataset/COCOQA'
+  trainset, testset, vocab = COCOQA.load_data{format='table', add_pad_word=false, 
+    add_unk_word=true, add_unk_answer=false, load_caption=args.capopt}
+  trainset.answers = torch.Tensor(trainset.answers)
+  testset.answers = torch.Tensor(testset.answers)
+end
+
+header('===== Testing Samples =====')
+for k=1,testnum do
+  i = math.random(testset.size)
+  que = testset.questions[i]
+  cap = testset.captions[i][1]
+  ans = testset.answers[i]
+  pre = dev_predictions[i]
+  ques = {}
+  for j=1,#que do
+    table.insert(ques, vocab.index_to_word[que[j]])
+  end
+  caps = {}
+  for j=1,#cap do
+    table.insert(caps, vocab.index_to_word[cap[j]])
+  end
+  print('Question:'.. string.format(string.rep(' %s',#que), unpack(ques)))
+  print('Caption:'.. string.format(string.rep(' %s',#cap), unpack(caps)))
+  print('--Answer: '.. vocab.index_to_answer[ans])
+  print('--Predict: '.. vocab.index_to_answer[pre])
+  print('--Picture: '.. 
+    string.format('val2014/COCO_val2014_%012d', 
+      tonumber(vocab.index_to_image[testset.images[i]])))
+end
+
+--------------------------------------------------------------------------------
+===== Testing Results =====
+--------------------------------------------------------------------------------
+Question: what is under the mirror with bottles of soap and lotion
+Caption: a bathroom sink sitting under a bathroom mirror
+--Answer: sink
+--Predict: sink
+--Picture: val2014/COCO_val2014_000000450125
+Question: the woman is riding what and has caught a huge wave
+Caption: a man riding a wave on top of a surfboard
+--Answer: surfboard
+--Predict: surfboard
+--Picture: val2014/COCO_val2014_000000049688
+Question: what high in the sky flying overhead
+Caption: an airplane flying through a cloudy sky
+--Answer: airplane
+--Predict: airplane
+--Picture: val2014/COCO_val2014_000000455943
+Question: what is the color of the toilet
+Caption: a white toilet sitting in a bathroom next to a trash can
+--Answer: white
+--Predict: white
+--Picture: val2014/COCO_val2014_000000256156
+Question: the man carrying a grocery bag rides what
+Caption: a man riding a skateboard down a street
+--Answer: skateboard
+--Predict: skateboard
+--Picture: val2014/COCO_val2014_000000341645
+Question: where is the brown dog laying
+Caption: a dog laying on a bed with a blanket
+--Answer: bed
+--Predict: bed
+--Picture: val2014/COCO_val2014_000000402742
+Question: what is the man eating in the restaurant
+Caption: a man sitting at a table with a plate of food
+--Answer: meal
+--Predict: meal
+--Picture: val2014/COCO_val2014_000000377427
+Question: what is on the high shelf
+Caption: a black suitcase is sitting on the floor
+--Answer: suitcase
+--Predict: suitcase
+--Picture: val2014/COCO_val2014_000000293244
+Question: what is sitting in front of a glass window
+Caption: a bike parked in front of a building
+--Answer: bicycle
+--Predict: bicycle
+--Picture: val2014/COCO_val2014_000000347982
+Question: the person riding what on top of a snow covered ground
+Caption: a man riding skis down a snow covered slope
+--Answer: skis
+--Predict: skis
+--Picture: val2014/COCO_val2014_000000509158
+Question: what is holding several colorful tulips
+Caption: a vase filled with flowers on top of a table
+--Answer: vase
+--Predict: vase
+--Picture: val2014/COCO_val2014_000000057571
+Question: what is laying down with mouth open as if to say something
+Caption: a cow is standing in a barn
+--Answer: cow
+--Predict: cow
+--Picture: val2014/COCO_val2014_000000412887
+Question: what are flying in the cloudy sky
+Caption: two planes flying in the sky in the sky
+--Answer: airplanes
+--Predict: airplanes
+--Picture: val2014/COCO_val2014_000000161044
+Question: what are confronting each other new a parked bicycle
+Caption: a couple of dogs standing next to a bike
+--Answer: dogs
+--Predict: dogs
+--Picture: val2014/COCO_val2014_000000326911
+Question: what served on stand at table with beverages
+Caption: a pizza sitting on top of a white plate
+--Answer: pizza
+--Predict: pizza
+--Picture: val2014/COCO_val2014_000000116208
+Question: what is behind some fallen wood in the forest
+Caption: a brown bear standing on a log in a forest
+--Answer: bear
+--Predict: bear
+--Picture: val2014/COCO_val2014_000000058522
+Question: what holding a white pillow in it 's hands
+Caption: a teddy bear is sitting on a bed
+--Answer: bear
+--Predict: bear
+--Picture: val2014/COCO_val2014_000000571678
+Question: what sits down on the ground with sand
+Caption: a brown bear laying on top of a rock
+--Answer: bear
+--Predict: bear
+--Picture: val2014/COCO_val2014_000000231364
+
+Question: where is the small black cat sitting
+Caption: a black cat sitting on top of a suitcase
+--Answer: bag
+--Predict: suitcase
+--Picture: val2014/COCO_val2014_000000051095
+Question: what is equipped with pots of coffee , paper cups and other supplies
+Caption: a kitchen filled with lots of clutter and appliances
+--Answer: shop
+--Predict: kitchen
+--Picture: val2014/COCO_val2014_000000407115
+Question: what fly in front of a stone clock *unk*
+Caption: a large building with a clock on it
+--Answer: flags
+--Predict: kites
+--Picture: val2014/COCO_val2014_000000516178
+Question: where is the baby , nibbling on something with an adult present
+Caption: a baby is sitting on a toilet in a bathroom
+--Answer: pool
+--Predict: sink
+--Picture: val2014/COCO_val2014_000000148170
+Question: what is an overhead view of a lot containing many parked , empty
+Caption: a group of buses parked in a parking lot
+--Answer: buses
+--Predict: bus
+--Picture: val2014/COCO_val2014_000000223466

@@ -7,6 +7,7 @@ omit/
 *.pyc
 *.swp
 *.t7
+*.xlsx
 train/log/README.md
 
 # copy file from https://github.com/github/gitignore/blob/master/Lua.gitignore
