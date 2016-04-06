@@ -199,12 +199,6 @@ function train(opt, model, criterion, trainset, testset)
         end
     end
 
-    if opt.pretrained_model and testset then
-        local loss, acc = test(model, criterion, testset)
-        log('test#2', 0, 0, loss, 0, acc, 0)
-    end
-
-
     -- get parameters and gradients from model
     local parameters, gradParameters = model:getParameters()
     
@@ -246,6 +240,10 @@ function train(opt, model, criterion, trainset, testset)
         acc_plotter = get_plotter(opt.plot_dir, 'acc', opt.fingerprint)
         loss_plotter = get_plotter(opt.plot_dir, 'loss', opt.fingerprint)
     end
+
+    -- test on the testset before train
+    local loss, acc = test(model, criterion, testset)
+    log('test#2', 0, 0, loss, 0, acc, 0)
 
     local function loop()
     -- loop epoch
