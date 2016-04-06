@@ -50,7 +50,7 @@ local DETERMINER = {
 --[[
 -- Read from file and save in table.
 --]]
-local function process_raw(file_dir)
+local function process_raw(file_dir, filter_type)
     local function read_file(fname)
         local f = assert(io.open(fname, 'r'))
         local file_content = f:read('*all')
@@ -79,9 +79,29 @@ local function process_raw(file_dir)
     -- process types
     fname = paths.concat(file_dir, TYPES_FILE_NAME)
     local types = read_file(fname)
+    for i, _type in ipairs(types) do
+        types[i] = tonumber(_type)+1
+    end
     assert(#answers == #types)
 
-    return images, questions, answers, types
+    local n_images, n_questions, n_answers, n_types = {}, {}, {}, {}
+    if filter_type ~= nil then
+        for i, _type in ipairs(types) do
+            if _type == filter_type then
+                table.insert(n_images, images[i])
+                table.insert(n_questions, questions[i])
+                table.insert(n_answers, answers[i])
+                table.insert(n_types, types[i])
+            end
+        end
+    else
+        n_images = images
+        n_questions = questions
+        n_answers = answers
+        n_types = types
+    end
+
+    return n_images, n_questions, n_answers, n_types
 end
 
 
@@ -190,12 +210,13 @@ function COCOQA.load_data(settings)
     --              vocabulary.
     -- tfidf: if given, compute tf-idf for each word in question.
     -- bow: if given, the question is represented as BoW form.
+    -- filter_type: [object, number, color, location] return questions of specific type.
 
     -- load raw data
     local train_images , train_questions, train_answers, train_types = 
-        process_raw(TRAIN_DIR)
+        process_raw(TRAIN_DIR, TYPE_TO_INDEX[settings.filter_type])
     local test_images, test_questions, test_answers, test_types = 
-        process_raw(TEST_DIR)
+        process_raw(TEST_DIR, TYPE_TO_INDEX[settings.filter_type])
     local captions = {}
     if settings.load_caption == 'origin' then
         captions = process_caption(ORIGIN_CAPTIONS_FILE)
