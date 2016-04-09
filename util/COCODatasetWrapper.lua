@@ -19,7 +19,8 @@ local function COCODatasetWrapper(dataset,
     assert(imageFeatures or (disability == 'blind'))
     assert((not disability) or (disability == 'blind') 
             or (disability == 'deaf'))
-    assert((not cacheFeature) or (cacheFeature and imageFeatures))
+    assert((not cacheFeature) or (cacheFeature and imageFeatures and 
+            type(imageFeatures) ~= 'table'))
     assert((not tfidf) or (tfidf and dataset.tfidfs))
 
     local Tensor = torch.Tensor
@@ -57,9 +58,8 @@ local function COCODatasetWrapper(dataset,
         if tfidf then
             return self.images[index], self.questions[index], 
                    self.answers[index], self.tfidfs[index]
-        else
-            return self.images[index], self.questions[index], self.answers[index]
         end
+        return self.images[index], self.questions[index], self.answers[index]
     end
     if disability == 'blind' then
         function dataset:next()
@@ -94,27 +94,55 @@ local function COCODatasetWrapper(dataset,
         if not disability then
             function dataset:next()
                 local V, Q, A, T = dataset:_next()
-                V = imageFeatures[V]
-                if self.cuda then
-                    V = V:cuda()
-                end
-                if tfidf then
-                    return {V, Q, T}, A
+                if type(imageFeatures) == 'table' then
+                    local hV = imageFeatures[1][V]
+                    local lV = imageFeatures[2][V]
+                    if self.cuda then
+                        hV = hV:cuda()
+                        lV = lV:cuda()
+                    end
+                    if tfidf then
+                        return {hV, lV, Q, T}, A
+                    else
+                        return {hV, lV, Q}, A
+                    end
                 else
-                    return {V, Q}, A
+                    V = imageFeatures[V]
+                    if self.cuda then
+                        V = V:cuda()
+                    end
+                    if tfidf then
+                        return {V, Q, T}, A
+                    else
+                        return {V, Q}, A
+                    end
                 end
             end
         elseif disability == 'deaf' then
             function dataset:next()
                 local V, Q, A, T = dataset:_next()
-                V = imageFeatures[V]
-                if self.cuda then
-                    V = V:cuda()
-                end
-                if tfidf then
-                    return {V, T}, A
+                if type(imageFeatures) == 'table' then
+                    local hV = imageFeatures[1][V]
+                    local lV = imageFeatures[2][V]
+                    if self.cuda then
+                        hV = hV:cuda()
+                        lV = lV:cuda()
+                    end
+                    if tfidf then
+                        return {hV, lV, T}, A
+                    else
+                        return {hV, lV}, A
+                    end
                 else
-                    return V, A
+                    V = imageFeatures[V]
+                    if self.cuda then
+                        V = V:cuda()
+                    end
+                    if tfidf then
+                        return {V, T}, A
+                    else
+                        return V, A
+                    end
                 end
             end
         end
