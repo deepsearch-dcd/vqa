@@ -242,8 +242,10 @@ function train(opt, model, criterion, trainset, testset)
     end
 
     -- test on the testset before train
-    local loss, acc = test(model, criterion, testset)
-    log('test#2', 0, 0, loss, 0, acc, 0)
+    if testset then
+        local loss, acc = test(model, criterion, testset)
+        log('test#2', 0, 0, loss, 0, acc, 0)
+    end
 
     local function loop()
     -- loop epoch
