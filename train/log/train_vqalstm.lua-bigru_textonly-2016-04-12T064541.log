@@ -1,0 +1,141 @@
+[program started on Tue Apr 12 06:45:41 2016] 
+[command line arguments] 
+rmdeter true 
+caponly false 
+dataset COCOQA 
+cuda true 
+caption false 
+epochs 50 
+modelclass LSTMVQA 
+capopt origin 
+model bigru 
+textonly true 
+layers 1 
+im_fea_dim 1024 
+dim 150 
+[----------------------] 
+-------------------------------------------------------------------------------- 
+LSTM for VQA with text only 
+-------------------------------------------------------------------------------- 
+loading COCOQA datasets 
+Remove determiner done. 
+num train = 78736 
+num test  = 38948 
+-------------------------------------------------------------------------------- 
+model configuration 
+-------------------------------------------------------------------------------- 
+max epochs                = 50 
+num params                = 220330 
+num compositional params  = 90900 
+word vector dim           = 50 
+LSTM memory dim           = 150 
+LSTM structure            = bigru 
+LSTM layers               = 1 
+regularization strength   = 1.00e-04 
+minibatch size            = 1 
+learning rate             = 5.00e-02 
+word vector learning rate = 1.00e-01 
+dropout                   = true 
+cuda                      = true 
+image feature dim         = [text only] 
+-------------------------------------------------------------------------------- 
+Training model 
+-------------------------------------------------------------------------------- 
+-- epoch 1 
+-- finished epoch in 1141.81s 
+-- train score: 0.30025655354603, cost 800.15s 
+-- test score: 0.27944952244018, cost 473.55s 
+-- epoch 2 
+-- finished epoch in 978.11s 
+-- train score: 0.36660485673644, cost 879.44s 
+-- test score: 0.33095409263634, cost 391.34s 
+-- epoch 3 
+-- finished epoch in 896.31s 
+-- train score: 0.40638335704125, cost 882.73s 
+-- test score: 0.35457533121085, cost 383.60s 
+-- epoch 4 
+-- finished epoch in 1034.89s 
+-- train score: 0.43701737451737, cost 801.40s 
+-- test score: 0.36643730101674, cost 383.63s 
+-- epoch 5 
+-- finished epoch in 1079.59s 
+-- train score: 0.46230440967283, cost 776.13s 
+-- test score: 0.37362637362637, cost 445.45s 
+-- epoch 6 
+-- finished epoch in 969.72s 
+-- train score: 0.47806594188173, cost 829.81s 
+-- test score: 0.37598849748382, cost 451.72s 
+-- epoch 7 
+-- finished epoch in 1089.21s 
+-- train score: 0.49911095305832, cost 907.08s 
+-- test score: 0.38104652356989, cost 416.96s 
+-- epoch 8 
+-- finished epoch in 1184.70s 
+-- train score: 0.51543131477342, cost 878.50s 
+-- test score: 0.38579644654411, cost 471.30s 
+-- epoch 9 
+-- finished epoch in 1080.60s 
+-- train score: 0.53283123348913, cost 915.45s 
+-- test score: 0.38148300297833, cost 417.10s 
+-- epoch 10 
+-- finished epoch in 1099.55s 
+-- train score: 0.54927860191018, cost 775.93s 
+-- test score: 0.3833572969087, cost 435.15s 
+-- epoch 11 
+-- finished epoch in 985.26s 
+-- train score: 0.56206817719976, cost 817.54s 
+-- test score: 0.38371675053918, cost 445.39s 
+-- epoch 12 
+-- finished epoch in 975.80s 
+-- train score: 0.5719111969112, cost 934.18s 
+-- test score: 0.37996816267844, cost 417.41s 
+-- epoch 13 
+-- finished epoch in 1183.52s 
+-- train score: 0.59451839057102, cost 843.64s 
+-- test score: 0.38515456506111, cost 496.30s 
+-- epoch 14 
+-- finished epoch in 956.51s 
+-- train score: 0.60765088396667, cost 879.72s 
+-- test score: 0.38315189483414, cost 384.21s 
+-- epoch 15 
+-- finished epoch in 905.90s 
+-- train score: 0.61603332655964, cost 886.94s 
+-- test score: 0.38448700831878, cost 387.79s 
+-- epoch 16 
+-- finished epoch in 990.27s 
+-- train score: 0.62879750050803, cost 1348.62s 
+-- test score: 0.38158570401561, cost 473.36s 
+-- epoch 17 
+-- finished epoch in 1221.82s 
+-- train score: 0.63941526112579, cost 955.49s 
+-- test score: 0.37829927082264, cost 509.89s 
+-- epoch 18 
+-- finished epoch in 1143.13s 
+-- train score: 0.64758179231863, cost 1008.53s 
+-- test score: 0.37760603882099, cost 462.70s 
+-- epoch 19 
+-- finished epoch in 1300.79s 
+-- train score: 0.65530380004064, cost 932.19s 
+-- test score: 0.37860737393448, cost 501.96s 
+-- epoch 20 
+-- finished epoch in 1213.69s 
+-- train score: 0.66239077423288, cost 989.54s 
+-- test score: 0.37724658519051, cost 485.83s 
+-- epoch 21 
+-- finished epoch in 1183.60s 
+-- train score: 0.67751727291201, cost 970.82s 
+-- test score: 0.37637362637363, cost 460.45s 
+-- epoch 22 
+-- finished epoch in 1271.33s 
+-- train score: 0.67704734809998, cost 924.81s 
+-- test score: 0.3753209407415, cost 507.87s 
+-- epoch 23 
+-- finished epoch in 1178.04s 
+-- train score: 0.69118319447267, cost 995.03s 
+-- test score: 0.37452500770258, cost 464.21s 
+-- epoch 24 
+-- finished epoch in 1234.92s 
+-- train score: 0.69726681568787, cost 961.36s 
+-- test score: 0.37547499229742, cost 471.78s 
+-- epoch 25 
+-- finished epoch in 1288.27s 
