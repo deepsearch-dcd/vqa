@@ -14,7 +14,8 @@ local function COCODatasetWrapper(dataset,
                                   imageFeatures, 
                                   disability, 
                                   cacheFeature,
-                                  tfidf)
+                                  tfidf,
+                                  normalize)
     assert(dataset)
     assert(imageFeatures or (disability == 'blind'))
     assert((not disability) or (disability == 'blind') 
@@ -22,6 +23,7 @@ local function COCODatasetWrapper(dataset,
     assert((not cacheFeature) or (cacheFeature and imageFeatures and 
             type(imageFeatures) ~= 'table'))
     assert((not tfidf) or (tfidf and dataset.tfidfs))
+    assert((normalize and imageFeatures) or (not normalize))
 
     local Tensor = torch.Tensor
     dataset.images = Tensor(dataset.images)
@@ -34,7 +36,40 @@ local function COCODatasetWrapper(dataset,
             dataset.tfidfs[i] = Tensor(t)
         end
     end
+    if normalize then
+        --[[
+        local mean = imageFeatures[1]:clone()
+        for i=2,imageFeatures:size(1) do
+            mean:add(imageFeatures[i])
+        end
+        mean:div(imageFeatures:size(1))
+        std = (imageFeatures[1]-mean):pow(2)
+        for i=2,imageFeatures:size(1) do
+            std:add((imageFeatures[i]-mean):pow(2))
+        end
+        std:div(imageFeatures:size(1)-1)
+        std:sqrt()
+        ]]
 
+        local images = dataset.images
+        local mean = imageFeatures[images[1]]:clone()
+        for i=2,images:size(1) do
+            mean:add(imageFeatures[images[i]])
+        end
+        mean:div(images:size(1))
+
+        local std = (imageFeatures[images[1]]-mean):pow(2)
+        for i=2,images:size(1) do
+            std:add((imageFeatures[images[i]]-mean):pow(2))
+        end
+        std:div(images:size(1)-1)
+        std:sqrt()
+        
+        for i=1,imageFeatures:size(1) do
+            imageFeatures[i]:csub(mean):cdiv(std)
+        end
+    end
+        
     if cacheFeature then
         dataset.images = util.assemble(dataset.images, imageFeatures)
     end
