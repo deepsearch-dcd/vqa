@@ -21,6 +21,7 @@ include('module/fRNNSU.lua')
 include('module/fBOW.lua')
 include('model/LSTMVQA.lua')
 include('model/ConcatVQA.lua')
+include('model/ImageVQA.lua')
 
 -- global paths (modify if desired)
 --vqalstm.data_dir        = 'data'
@@ -40,6 +41,18 @@ function share_params(cell, src)
   else
     error('parameters cannot be shared for this input')
   end
+end
+
+function argmax(v)
+  local idx = 1
+  local max = v[1]
+  for i = 2, v:size(1) do
+    if v[i] > max then
+      max = v[i]
+      idx = i
+    end
+  end
+  return idx
 end
 
 function header(s)

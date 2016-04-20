@@ -20,7 +20,7 @@ cmd:option('-caption',false,'Use caption')
 cmd:option('-capopt','origin','Caption option [origin, generate]')
 cmd:option('-caponly',false,'Use caption only without question')
 cmd:option('-dataset','COCOQA','Dataset [DAQUAR, COCOQA]')
-cmd:option('-modelclass','LSTMVQA','Model class [LSTMVQA, ConcatVQA]')
+cmd:option('-modelclass','LSTMVQA','Model class [LSTMVQA, ConcatVQA, ImageVQA]')
 cmd:text()
 local args = cmd:parse(arg)
 print(cmd:string(paths.thisfile(), args, {dir=true}))
@@ -46,6 +46,8 @@ if args.modelclass == 'LSTMVQA' then
   model_class = vqalstm.LSTMVQA
 elseif args.modelclass == 'ConcatVQA' then
   model_class = vqalstm.ConcatVQA
+elseif args.modelclass == 'ImageVQA' then
+  model_class = vqalstm.ImageVQA
 else
   error('Unknown model class')
 end
@@ -122,7 +124,9 @@ for i = 1, num_epochs do
       textonly = textonly
     }
     best_dev_model.params:copy(model.params)
-    best_dev_model.emb.weight:copy(model.emb.weight)
+    if not args.modelclass == 'ImageVQA' then
+      best_dev_model.emb.weight:copy(model.emb.weight)
+    end
     best_dev_epoch = i
   end
 end
