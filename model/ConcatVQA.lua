@@ -182,6 +182,7 @@ function ConcatVQA:train(dataset)
           }
         end
 
+        -- image features
         if not self.textonly then
           local img = dataset.images[idx]
           local imgfea = dataset.imagefeas[img]
@@ -219,9 +220,6 @@ function ConcatVQA:train(dataset)
         local rep_grad = self.vqa_module:backward(rep, obj_grad)
 
         if not self.textonly then
-          local img = dataset.images[idx]
-          local imgfea = dataset.imagefeas[img]
-          --imgfea = torch.repeatTensor(imgfea,1,1)
           if self.structure == 'bilstm' or self.structure == 'bigru' then
             if self.num_layers == 1 then
               rep_grad[1] = self.narrow1:forward(rep_grad[1])

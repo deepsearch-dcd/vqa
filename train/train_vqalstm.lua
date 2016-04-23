@@ -12,9 +12,11 @@ cmd:option('-model','lstm','Model architecture: [lstm, bilstm, rlstm, gru, rnn, 
 cmd:option('-layers',1,'Number of layers (ignored for Tree-LSTM)')
 cmd:option('-dim',150,'LSTM memory dimension')
 cmd:option('-im_fea_dim',1024,'image feature dimension')
+cmd:option('-im_fea','GoogLeNet-1024.npy','image feature name')
 cmd:option('-epochs',100,'Number of training epochs')
 cmd:option('-cuda',false,'Using cuda')
 cmd:option('-textonly',false,'Text only')
+cmd:option('-imageonly',false,'Image only')
 cmd:option('-rmdeter',false,'Remove determiner')
 cmd:option('-caption',false,'Use caption')
 cmd:option('-capopt','origin','Caption option [origin, generate]')
@@ -39,6 +41,7 @@ local model_structure = args.model
 local num_epochs = args.epochs
 local cuda = args.cuda
 local textonly = args.textonly
+local imageonly = args.imageonly
 local dataset = args.dataset
 local use_caption = args.caption
 local model_class
@@ -55,6 +58,10 @@ if textonly then
   cmd:log(paths.thisfile() ..'-'.. model_structure .. 
     os.date('_textonly-%Y-%m-%dT%H%M%S') ..'.log', args)
   header('LSTM for VQA with text only')
+elseif imageonly then
+  cmd:log(paths.thisfile() ..'-'.. model_structure .. 
+    os.date('_imageonly-%Y-%m-%dT%H%M%S') ..'.log', args)
+  header('LSTM for VQA with image only')
 else
   cmd:log(paths.thisfile() ..'-'.. model_structure .. 
     os.date('-%Y-%m-%dT%H%M%S') ..'.log', args)
@@ -78,7 +85,8 @@ local model = model_class{
   num_classes = trainset.nanswer,
   cuda = args.cuda,
   im_fea_dim = args.im_fea_dim,
-  textonly = textonly
+  textonly = textonly,
+  imageonly = imageonly,
 }
 
 ---------- print information ----------
@@ -121,7 +129,8 @@ for i = 1, num_epochs do
       num_classes = trainset.nanswer,
       cuda = args.cuda,
       im_fea_dim = args.im_fea_dim,
-      textonly = textonly
+      textonly = textonly,
+      imageonly = imageonly
     }
     best_dev_model.params:copy(model.params)
     if not args.modelclass == 'ImageVQA' then
@@ -137,6 +146,10 @@ print('best dev score is: '.. best_dev_score)
 local model_save_path
 if textonly then
   model_save_path = string.format("./done/vqalstm-%s-%s_textonly.l%d.d%d.e%d.c%d-%s.t7", 
+    args.dataset, args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
+    os.date('%Y-%m-%dT%H%M%S'))
+elseif imageonly then
+  model_save_path = string.format("./done/vqalstm-%s-%s_imageonly.l%d.d%d.e%d.c%d-%s.t7", 
     args.dataset, args.model, args.layers, args.dim, best_dev_epoch, args.cuda and 1 or 0, 
     os.date('%Y-%m-%dT%H%M%S'))
 else
