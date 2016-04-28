@@ -227,3 +227,8 @@ Training model
 -- train score: 0.53711135947978, cost 718.14s 
 -- test score: 0.31257060696313, cost 354.95s 
 -- epoch 47 
+-- finished epoch in 1127.00s 
+-- train score: 0.535942897785, cost 800.48s 
+-- test score: 0.3153435349697, cost 397.87s 
+-- epoch 48 
+-- finished epoch in 1187.66s 

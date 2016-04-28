@@ -23,15 +23,24 @@ function ImageVQA:__init(config)
   self.criterion = nn.ClassNLLCriterion()
 
   -- vqa classification module
-  self.vqa_module = self:new_vqa_module()
+  self.vqa_module1 = self:new_vqa_module()
+  self.vqa_module2 = self:new_vqa_module()
+  self.vqa_module3 = self:new_vqa_module()
+  self.vqa_module4 = self:new_vqa_module()
 
   if self.cuda then
     self.criterion = self.criterion:cuda()
-    self.vqa_module = self.vqa_module:cuda()
+    self.vqa_module1 = self.vqa_module1:cuda()
+    self.vqa_module2 = self.vqa_module2:cuda()
+    self.vqa_module3 = self.vqa_module3:cuda()
+    self.vqa_module4 = self.vqa_module4:cuda()
   end
 
   local modules = nn.Parallel()
-  modules:add(self.vqa_module)
+  modules:add(self.vqa_module1)
+  modules:add(self.vqa_module2)
+  modules:add(self.vqa_module3)
+  modules:add(self.vqa_module4)
 
   if self.cuda then
     modules = modules:cuda()
@@ -61,7 +70,10 @@ function ImageVQA:new_vqa_module()
 end
 
 function ImageVQA:train(dataset)
-  self.vqa_module:training()
+  self.vqa_module1:training()
+  self.vqa_module2:training()
+  self.vqa_module3:training()
+  self.vqa_module4:training()
   
   local indices = torch.randperm(dataset.size)
   for i = 1, dataset.size, self.batch_size do
@@ -75,13 +87,25 @@ function ImageVQA:train(dataset)
       for j = 1, batch_size do
         local idx = indices[i + j - 1]
         local ans = dataset.answers[idx]
+        local typ = tonumber(dataset.types[idx])
 
         -------------------- FORWARD --------------------
         local img = dataset.images[idx]
         local imgfea = dataset.imagefeas[img]
 
         -- compute class log probabilities
-        local output = self.vqa_module:forward(imgfea) -- class log prob
+        local output
+        if typ == 0 then
+          output = self.vqa_module1:forward(imgfea) -- class log prob
+        elseif typ == 1 then
+          output = self.vqa_module2:forward(imgfea) -- class log prob
+        elseif typ == 2 then
+          output = self.vqa_module3:forward(imgfea) -- class log prob
+        elseif typ == 3 then
+          output = self.vqa_module4:forward(imgfea) -- class log prob
+        else
+          error("Error type in prediction: "..typ)
+        end
 
         -- compute loss and backpropagate
         local example_loss = self.criterion:forward(output, ans)
@@ -89,7 +113,18 @@ function ImageVQA:train(dataset)
 
         -------------------- BACKWARD --------------------
         local obj_grad = self.criterion:backward(output, ans)
-        local rep_grad = self.vqa_module:backward(imgfea, obj_grad)
+        local rep_grad
+        if typ == 0 then
+          rep_grad = self.vqa_module1:backward(imgfea, obj_grad)
+        elseif typ == 1 then
+          rep_grad = self.vqa_module2:backward(imgfea, obj_grad)
+        elseif typ == 2 then
+          rep_grad = self.vqa_module3:backward(imgfea, obj_grad)
+        elseif typ == 3 then
+          rep_grad = self.vqa_module4:backward(imgfea, obj_grad)
+        else
+          error("Error type in prediction: "..typ)
+        end
       end
 
       -- comment these, since batch_size is 1
@@ -109,9 +144,23 @@ function ImageVQA:train(dataset)
 end
 
 -- Predict the vqa of a sentence.
-function ImageVQA:predict(imgfea)
-  self.vqa_module:evaluate()
-  local logprobs = self.vqa_module:forward(imgfea)
+function ImageVQA:predict(typ, imgfea)
+  local logprobs
+  if typ == 0 then
+    self.vqa_module1:evaluate()
+    logprobs = self.vqa_module1:forward(imgfea)
+  elseif typ == 1 then
+    self.vqa_module2:evaluate()
+    logprobs = self.vqa_module2:forward(imgfea)
+  elseif typ == 2 then
+    self.vqa_module3:evaluate()
+    logprobs = self.vqa_module3:forward(imgfea)
+  elseif typ == 3 then
+    self.vqa_module4:evaluate()
+    logprobs = self.vqa_module4:forward(imgfea)
+  else
+    error("Error type in prediction: "..typ)
+  end
   local prediction = argmax(logprobs)
   return prediction
 end
@@ -122,7 +171,7 @@ function ImageVQA:predict_dataset(dataset)
   
   for i = 1, dataset.size do
     xlua.progress(i, dataset.size)
-    predictions[i] = self:predict(dataset.imagefeas[dataset.images[i]])
+    predictions[i] = self:predict(tonumber(dataset.types[i]), dataset.imagefeas[dataset.images[i]])
   end
   return predictions
 end

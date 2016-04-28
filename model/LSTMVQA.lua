@@ -216,7 +216,7 @@ function LSTMVQA:train(dataset)
         if self.structure == 'lstm' or self.structure == 'gru' or self.structure == 'rnn' or self.structure == 'rnnsu' or self.structure == 'bow' then
           input_grads = self:LSTM_backward(inputs, rep_grad)
         elseif self.structure == 'rlstm' then
-          input_grads = self:rLSTM_backward(inputs, rep_grad, true)
+          input_grads = self:rLSTM_backward(inputs, rep_grad)
         elseif self.structure == 'bilstm' or self.structure == 'bigru' then
           input_grads = self:BiLSTM_backward(inputs, rep_grad)
         end
