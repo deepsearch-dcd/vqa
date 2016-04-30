@@ -149,15 +149,16 @@ function loadFea(args)
   print('loading features')
   local feas
   if args.dataset == 'DAQUAR' then
-    feas = npy4th.loadnpy('./feature/DAQUAR-ALL/GoogLeNet-1000-softmax/im_fea.npy')
+    feas = npy4th.loadnpy('./feature/DAQUAR-ALL/' .. args.im_fea) -- GoogLeNet-1000-softmax/im_fea.npy
   elseif args.dataset == 'COCOQA' then
-    if args.im_fea_dim==1000 then
-      feas = npy4th.loadnpy('./feature/COCO-QA/GoogLeNet-1000.npy') -- GoogLeNet-1000-softmax.npy GoogLeNet-1000.npy VGG19-1000-softmax.npy VGG19-1000.npy
-    elseif args.im_fea_dim==1024 then
-      feas = npy4th.loadnpy('./feature/COCO-QA/GoogLeNet-1024.npy')
-    elseif args.im_fea_dim==4096 then
-      feas = npy4th.loadnpy('./feature/COCO-QA/VGG19-4096-relu.npy') -- VGG19-4096-relu.npy VGG19-4096.npy
-    end
+    feas = npy4th.loadnpy('./feature/COCO-QA/' .. args.im_fea)
+    -- if args.im_fea_dim==1000 then
+    --   feas = npy4th.loadnpy('./feature/COCO-QA/GoogLeNet-1000.npy') -- GoogLeNet-1000-softmax.npy GoogLeNet-1000.npy VGG19-1000-softmax.npy VGG19-1000.npy
+    -- elseif args.im_fea_dim==1024 then
+    --   feas = npy4th.loadnpy('./feature/COCO-QA/GoogLeNet-1024.npy') -- GoogLeNet-1024.npy GoogLeNet-1024-bbox-10x1.npy
+    -- elseif args.im_fea_dim==4096 then
+    --   feas = npy4th.loadnpy('./feature/COCO-QA/VGG19-4096-relu.npy') -- VGG19-4096-relu.npy VGG19-4096.npy
+    -- end
   end
   if args.cuda then
     feas = feas:float():cuda()

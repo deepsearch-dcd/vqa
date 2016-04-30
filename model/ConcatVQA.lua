@@ -13,26 +13,17 @@ function ConcatVQA:__init(config)
   self.num_layers        = config.num_layers        or 1
   self.batch_size        = config.batch_size        or 1 -- train per 1 sample
   self.reg               = config.reg               or 1e-4
-  self.structure         = config.structure         or 'lstm' -- {lstm, bilstm, rlstm, rnn, rnnsu, bow}
+  self.structure         = config.structure         or 'lstm' -- {lstm, bilstm, rlstm, gru, bigru, rnn, rnnsu, bow}
   self.dropout           = (config.dropout == nil) and true or config.dropout
   self.num_classes       = config.num_classes
   self.cuda              = config.cuda              or false
-  self.textonly          = config.textonly          or false
   self.im_fea_dim        = config.im_fea_dim        or 1000
   assert(self.num_classes~=nil)
-
-  if self.textonly then
-    self.concat_mem_dim = self.mem_dim
-  else
-    self.concat_mem_dim = self.mem_dim + self.im_fea_dim
-  end
 
   -- word embedding
   self.emb_dim = config.emb_vecs:size(2)
   self.emb = nn.LookupTable(config.emb_vecs:size(1), self.emb_dim)
   self.emb.weight:copy(config.emb_vecs)
-
-  self.in_zeros = torch.zeros(self.emb_dim)
 
   -- optimizer configuration
   self.optim_state = { learningRate = self.learning_rate }
@@ -43,20 +34,17 @@ function ConcatVQA:__init(config)
   -- vqa classification module
   self.vqa_module = self:new_vqa_module()
 
-  if not self.textonly then
-    self.jointable1 = nn.JoinTable(1)
-    self.narrow1 = nn.Narrow(1,1,self.mem_dim)
-  end
+  self.jointable1 = nn.JoinTable(1)
+  self.narrow1 = nn.Narrow(1,1,self.mem_dim)
+  self.narrow1_im = nn.Narrow(1,self.mem_dim+1,self.mem_dim)
 
   if self.cuda then
     self.emb = self.emb:cuda()
-    self.in_zeros = self.in_zeros:float():cuda()
     self.criterion = self.criterion:cuda()
     self.vqa_module = self.vqa_module:cuda()
-    if not self.textonly then
-      self.jointable1 = self.jointable1:cuda()
-      self.narrow1 = self.narrow1:cuda()
-    end
+    self.jointable1 = self.jointable1:cuda()
+    self.narrow1 = self.narrow1:cuda()
+    self.narrow1_im = self.narrow1_im:cuda()
   end
 
   -- initialize LSTM model
@@ -67,24 +55,46 @@ function ConcatVQA:__init(config)
     gate_output = true,
     cuda = self.cuda
   }
+  local lstm_config_im = {
+    in_dim = self.im_fea_dim,
+    mem_dim = self.mem_dim,
+    num_layers = self.num_layers,
+    gate_output = true,
+    cuda = self.cuda
+  }
 
   if self.structure == 'lstm' or self.structure == 'rlstm' then
     self.lstm = vqalstm.LSTM(lstm_config)
+    self.lstm_im = vqalstm.LSTM(lstm_config_im)
   elseif self.structure == 'bilstm' then
     self.lstm = vqalstm.LSTM(lstm_config)
     self.lstm_b = vqalstm.LSTM(lstm_config)
+    self.lstm_im = vqalstm.LSTM(lstm_config_im)
+    self.lstm_im_b = vqalstm.LSTM(lstm_config_im)
+  elseif self.structure == 'gru' then
+    self.lstm = vqalstm.GRU(lstm_config)
+    self.lstm_im = vqalstm.GRU(lstm_config_im)
+  elseif self.structure == 'bigru' then
+    self.lstm = vqalstm.GRU(lstm_config)
+    self.lstm_b = vqalstm.GRU(lstm_config)
+    self.lstm_im = vqalstm.GRU(lstm_config_im)
+    self.lstm_im_b = vqalstm.GRU(lstm_config_im)
   elseif self.structure == 'rnn' then
     self.lstm = vqalstm.RNN(lstm_config)
+    self.lstm_im = vqalstm.RNN(lstm_config_im)
   elseif self.structure == 'rnnsu' then
     self.lstm = vqalstm.RNNSU(lstm_config)
+    self.lstm_im = vqalstm.RNNSU(lstm_config_im)
   elseif self.structure == 'bow' then
     self.lstm = vqalstm.BOW(lstm_config)
+    self.lstm_im = vqalstm.BOW(lstm_config_im)
   else
     error('invalid LSTM type: ' .. self.structure)
   end
 
   local modules = nn.Parallel()
   modules:add(self.lstm)
+  modules:add(self.lstm_im)
   modules:add(self.vqa_module)
 
   if self.cuda then
@@ -95,18 +105,19 @@ function ConcatVQA:__init(config)
 
   -- share must only be called after getParameters, since this changes the
   -- location of the parameters
-  if self.structure == 'bilstm' then
+  if self.structure == 'bilstm' or self.structure == 'bigru' then
     share_params(self.lstm_b, self.lstm)
+    share_params(self.lstm_im_b, self.lstm_im)
   end
 end
 
 function ConcatVQA:new_vqa_module()
   local input_dim
-  input_dim = self.num_layers * self.concat_mem_dim
+  input_dim = self.num_layers * (self.mem_dim * 2)
   local inputs, vec
   if self.structure == 'lstm' or self.structure == 'rlstm' 
-    or self.structure == 'rnn' or self.structure == 'rnnsu'
-    or self.structure == 'bow' then
+    or self.structure == 'gru' or self.structure == 'rnn'
+    or self.structure == 'rnnsu' or self.structure == 'bow' then
     local rep = nn.Identity()()
     if self.num_layers == 1 then
       vec = {rep}
@@ -114,7 +125,7 @@ function ConcatVQA:new_vqa_module()
       vec = nn.JoinTable(1)(rep)
     end
     inputs = {rep}
-  elseif self.structure == 'bilstm' then
+  elseif self.structure == 'bilstm' or self.structure == 'bigru' then
     local frep, brep = nn.Identity()(), nn.Identity()()
     input_dim = input_dim * 2
     if self.num_layers == 1 then
@@ -140,9 +151,11 @@ end
 
 function ConcatVQA:train(dataset)
   self.lstm:training()
+  self.lstm_im:training()
   self.vqa_module:training()
-  if self.structure == 'bilstm' then
+  if self.structure == 'bilstm' or self.structure == 'bigru' then
     self.lstm_b:training()
+    self.lstm_im_b:training()
   end
 
   local indices = torch.randperm(dataset.size)
@@ -159,45 +172,53 @@ function ConcatVQA:train(dataset)
         local idx = indices[i + j - 1]
         local ques = dataset.questions[idx] -- question word indicies
         local ans = dataset.answers[idx]
+        -- image features
+        local img = dataset.images[idx]
+        local imgfea = dataset.imagefeas[img]
+        if imgfea:size():size() == 1 then
+          imgfea = torch.repeatTensor(imgfea,1,1)
+        end
 
         -------------------- FORWARD --------------------
         local inputs = self.emb:forward(ques) -- question word vectors
 
         -- get sentence representations
         local rep -- htables
-        if self.structure == 'lstm' or self.structure == 'rnn'
+        local rep_im
+        if self.structure == 'lstm' or self.structure == 'gru' or self.structure == 'rnn'
           or self.structure == 'rnnsu' or self.structure == 'bow' then
           rep = self.lstm:forward(inputs)
+          rep_im = self.lstm_im:forward(imgfea)
         elseif self.structure == 'rlstm' then
           rep = self.lstm:forward(inputs, true)
-        elseif self.structure == 'bilstm' then
+          rep_im = self.lstm_im:forward(imgfea, true)
+        elseif self.structure == 'bilstm' or self.structure == 'bigru' then
           rep = {
             self.lstm:forward(inputs),
             self.lstm_b:forward(inputs, true), -- true => reverse
           }
+          rep_im = {
+            self.lstm_im:forward(imgfea),
+            self.lstm_im_b:forward(imgfea, true), -- true => reverse
+          }
         end
 
-        if not self.textonly then
-          local img = dataset.images[idx]
-          local imgfea = dataset.imagefeas[img]
-          --imgfea = torch.repeatTensor(imgfea,1,1)
-          if self.structure == 'bilstm' then
-            if self.num_layers == 1 then
-              rep[1] = self.jointable1:forward{rep[1], imgfea}
-              rep[2] = self.jointable1:forward{rep[2], imgfea}
-            else -- num_layers > 1
-              for i = 1,self.num_layers do
-                rep[1][i] = self.jointable1:forward{rep[1][i], imgfea}
-                rep[2][i] = self.jointable1:forward{rep[2][i], imgfea}
-              end
+        if self.structure == 'bilstm' or self.structure == 'bigru' then
+          if self.num_layers == 1 then
+            rep[1] = self.jointable1:forward{rep[1], rep_im[1]}
+            rep[2] = self.jointable1:forward{rep[2], rep_im[2]}
+          else -- num_layers > 1
+            for i = 1,self.num_layers do
+              rep[1][i] = self.jointable1:forward{rep[1][i], rep_im[1][i]}
+              rep[2][i] = self.jointable1:forward{rep[2][i], rep_im[2][i]}
             end
-          else -- structure is not bilstm
-            if self.num_layers == 1 then
-              rep = self.jointable1:forward{rep, imgfea}
-            else -- num_layers > 1
-              for i = 1,self.num_layers do
-                rep[i] = self.jointable1:forward{rep[i], imgfea}
-              end
+          end
+        else -- structure is not bilstm
+          if self.num_layers == 1 then
+            rep = self.jointable1:forward{rep, rep_im}
+          else -- num_layers > 1
+            for i = 1,self.num_layers do
+              rep[i] = self.jointable1:forward{rep[i], rep_im[i]}
             end
           end
         end
@@ -212,39 +233,46 @@ function ConcatVQA:train(dataset)
         -------------------- BACKWARD --------------------
         local obj_grad = self.criterion:backward(output, ans)
         local rep_grad = self.vqa_module:backward(rep, obj_grad)
+        local rep_im_grad = {}
 
-        if not self.textonly then
-          local img = dataset.images[idx]
-          local imgfea = dataset.imagefeas[img]
-          --imgfea = torch.repeatTensor(imgfea,1,1)
-          if self.structure == 'bilstm' then
-            if self.num_layers == 1 then
-              rep_grad[1] = self.narrow1:forward(rep_grad[1])
-              rep_grad[2] = self.narrow1:forward(rep_grad[2])
-            else -- num_layers > 1
-              for i = 1,self.num_layers do
-                rep_grad[1][i] = self.narrow1:forward(rep_grad[1][i])
-                rep_grad[2][i] = self.narrow1:forward(rep_grad[2][i])
-              end
+        if self.structure == 'bilstm' or self.structure == 'bigru' then
+          if self.num_layers == 1 then
+            rep_im_grad[1] = self.narrow1_im:forward(rep_grad[1])
+            rep_im_grad[2] = self.narrow1_im:forward(rep_grad[2])
+            rep_grad[1] = self.narrow1:forward(rep_grad[1])
+            rep_grad[2] = self.narrow1:forward(rep_grad[2])
+          else -- num_layers > 1
+            rep_im_grad[1] = {}
+            rep_im_grad[2] = {}
+            for i = 1,self.num_layers do
+              rep_im_grad[1][i] = self.narrow1_im:forward(rep_grad[1][i])
+              rep_im_grad[2][i] = self.narrow1_im:forward(rep_grad[2][i])
+              rep_grad[1][i] = self.narrow1:forward(rep_grad[1][i])
+              rep_grad[2][i] = self.narrow1:forward(rep_grad[2][i])
             end
-          else -- structure is not bilstm
-            if self.num_layers == 1 then
-              rep_grad = self.narrow1:forward(rep_grad)
-            else -- num_layers > 1
-              for i = 1,self.num_layers do
-                rep_grad[i] = self.narrow1:forward(rep_grad[i])
-              end
+          end
+        else -- structure is not bilstm
+          if self.num_layers == 1 then
+            rep_im_grad = self.narrow1_im:forward(rep_grad)
+            rep_grad = self.narrow1:forward(rep_grad)
+          else -- num_layers > 1
+            for i = 1,self.num_layers do
+              rep_im_grad[i] = self.narrow1_im:forward(rep_grad[i])
+              rep_grad[i] = self.narrow1:forward(rep_grad[i])
             end
           end
         end
 
         local input_grads
-        if self.structure == 'lstm' or self.structure == 'rnn' or self.structure == 'rnnsu' or self.structure == 'bow' then
-          input_grads = self:LSTM_backward(ques, inputs, rep_grad)
+        if self.structure == 'lstm' or self.structure == 'gru' or self.structure == 'rnn' or self.structure == 'rnnsu' or self.structure == 'bow' then
+          input_grads = self:LSTM_backward(inputs, rep_grad)
+          self:LSTM_backward(imgfea, rep_im_grad, true)
         elseif self.structure == 'rlstm' then
-          input_grads = self:rLSTM_backward(ques, inputs, rep_grad, true)
-        elseif self.structure == 'bilstm' then
-          input_grads = self:BiLSTM_backward(ques, inputs, rep_grad)
+          input_grads = self:rLSTM_backward(inputs, rep_grad)
+          self:rLSTM_backward(imgfea, rep_im_grad, true)
+        elseif self.structure == 'bilstm' or self.structure == 'bigru' then
+          input_grads = self:BiLSTM_backward(inputs, rep_grad)
+          self:BiLSTM_backward(imgfea, rep_im_grad, true)
         end
         self.emb:backward(ques, input_grads)
       end
@@ -267,38 +295,45 @@ function ConcatVQA:train(dataset)
 end
 
 -- LSTM backward propagation
-function ConcatVQA:LSTM_backward(ques, inputs, rep_grad)
+function ConcatVQA:LSTM_backward(inputs, rep_grad, is_im)
   local grad
+  local numelem = inputs:size(1)
   if self.num_layers == 1 then
-    grad = torch.zeros(ques:nElement(), self.mem_dim)
+    grad = torch.zeros(numelem, self.mem_dim)
     if self.cuda then
       grad = grad:float():cuda()
     end
-    grad[ques:nElement()] = rep_grad
+    grad[numelem] = rep_grad
   else
-    grad = torch.zeros(ques:nElement(), self.num_layers, self.mem_dim)
+    grad = torch.zeros(numelem, self.num_layers, self.mem_dim)
     if self.cuda then
       grad = grad:float():cuda()
     end
     for l = 1, self.num_layers do
-      grad[{ques:nElement(), l, {}}] = rep_grad[l]
+      grad[{numelem, l, {}}] = rep_grad[l]
     end
   end
-  local input_grads = self.lstm:backward(inputs, grad)
+  local input_grads
+  if not is_im then
+    input_grads = self.lstm:backward(inputs, grad)
+  else
+    input_grads = self.lstm_im:backward(inputs, grad)
+  end
   return input_grads
 end
 
 -- LSTM backward propagation
-function ConcatVQA:rLSTM_backward(ques, inputs, rep_grad)
+function ConcatVQA:rLSTM_backward(inputs, rep_grad, is_im)
   local grad
+  local numelem = inputs:size(1)
   if self.num_layers == 1 then
-    grad = torch.zeros(ques:nElement(), self.mem_dim)
+    grad = torch.zeros(numelem, self.mem_dim)
     if self.cuda then
       grad = grad:float():cuda()
     end
     grad[1] = rep_grad
   else
-    grad = torch.zeros(ques:nElement(), self.num_layers, self.mem_dim)
+    grad = torch.zeros(numelem, self.num_layers, self.mem_dim)
     if self.cuda then
       grad = grad:float():cuda()
     end
@@ -306,81 +341,103 @@ function ConcatVQA:rLSTM_backward(ques, inputs, rep_grad)
       grad[{1, l, {}}] = rep_grad[l]
     end
   end
-  local input_grads = self.lstm:backward(inputs, grad, true)
+  local input_grads
+  if not is_im then
+    input_grads = self.lstm:backward(inputs, grad, true)
+  else
+    input_grads = self.lstm_im:backward(inputs, grad, true)
+  end
   return input_grads
 end
 
 -- Bidirectional LSTM backward propagation
-function ConcatVQA:BiLSTM_backward(ques, inputs, rep_grad)
+function ConcatVQA:BiLSTM_backward(inputs, rep_grad, is_im)
   local grad, grad_b
+  local numelem = inputs:size(1)
   if self.num_layers == 1 then
-    grad   = torch.zeros(ques:nElement(), self.mem_dim)
-    grad_b = torch.zeros(ques:nElement(), self.mem_dim)
+    grad   = torch.zeros(numelem, self.mem_dim)
+    grad_b = torch.zeros(numelem, self.mem_dim)
     if self.cuda then
       grad = grad:float():cuda()
       grad_b = grad_b:float():cuda()
     end
-    grad[ques:nElement()] = rep_grad[1]
+    grad[numelem] = rep_grad[1]
     grad_b[1] = rep_grad[2]
   else
-    grad   = torch.zeros(ques:nElement(), self.num_layers, self.mem_dim)
-    grad_b = torch.zeros(ques:nElement(), self.num_layers, self.mem_dim)
+    grad   = torch.zeros(numelem, self.num_layers, self.mem_dim)
+    grad_b = torch.zeros(numelem, self.num_layers, self.mem_dim)
     if self.cuda then
       grad = grad:float():cuda()
       grad_b = grad_b:float():cuda()
     end
     for l = 1, self.num_layers do
-      grad[{ques:nElement(), l, {}}] = rep_grad[1][l]
+      grad[{numelem, l, {}}] = rep_grad[1][l]
       grad_b[{1, l, {}}] = rep_grad[2][l]
     end
   end
-  local input_grads = self.lstm:backward(inputs, grad)
-  local input_grads_b = self.lstm_b:backward(inputs, grad_b, true)
+  local input_grads
+  local input_grads_b
+  if not is_im then
+    input_grads = self.lstm:backward(inputs, grad)
+    input_grads_b = self.lstm_b:backward(inputs, grad_b, true)
+  else
+    input_grads = self.lstm_im:backward(inputs, grad)
+    input_grads_b = self.lstm_im_b:backward(inputs, grad_b, true)
+  end
   return input_grads + input_grads_b
 end
 
 -- Predict the vqa of a sentence.
 function ConcatVQA:predict(ques, imgfea)
   self.lstm:evaluate()
+  self.lstm_im:evaluate()
   self.vqa_module:evaluate()
+
   local inputs = self.emb:forward(ques)
+  if imgfea:size():size() == 1 then
+    imgfea = torch.repeatTensor(imgfea,1,1)
+  end
 
   local rep
-  if self.structure == 'lstm' or self.structure == 'rnn' or self.structure == 'rnnsu' or self.structure == 'bow' then
+  if self.structure == 'lstm' or self.structure == 'gru' or self.structure == 'rnn' or self.structure == 'rnnsu' or self.structure == 'bow' then
     rep = self.lstm:forward(inputs)
+    rep_im = self.lstm_im:forward(imgfea)
   elseif self.structure == 'rlstm' then
     rep = self.lstm:forward(inputs, true)
-  elseif self.structure == 'bilstm' then
+    rep_im = self.lstm_im:forward(imgfea, true)
+  elseif self.structure == 'bilstm' or self.structure == 'bigru' then
     self.lstm_b:evaluate()
+    self.lstm_im_b:evaluate()
     rep = {
       self.lstm:forward(inputs),
       self.lstm_b:forward(inputs, true),
     }
+    rep_im = {
+      self.lstm_im:forward(imgfea),
+      self.lstm_im_b:forward(imgfea, true), -- true => reverse
+    }
   end
 
-  if not self.textonly then
-    --imgfea = torch.repeatTensor(imgfea,1,1)
-    if self.structure == 'bilstm' then
-      if self.num_layers == 1 then
-        for i = 1,self.num_layers do
-          rep[1] = self.jointable1:forward{rep[1], imgfea}
-          rep[2] = self.jointable1:forward{rep[2], imgfea}
-        end
-      else -- num_layers > 1
-        for i = 1,self.num_layers do
-          rep[1][i] = self.jointable1:forward{rep[1][i], imgfea}
-          rep[2][i] = self.jointable1:forward{rep[2][i], imgfea}
-        end
+  if self.structure == 'bilstm' or self.structure == 'bigru' then
+    if self.num_layers == 1 then
+      for i = 1,self.num_layers do
+        rep[1] = self.jointable1:forward{rep[1], rep_im[1]}
+        rep[2] = self.jointable1:forward{rep[2], rep_im[2]}
       end
-    else -- structure is not bilstm
-      if self.num_layers == 1 then
-        for i = 1,self.num_layers do
-          rep = self.jointable1:forward{rep, imgfea}
-        end
-      else -- num_layers > 1
-        for i = 1,self.num_layers do
-          rep[i] = self.jointable1:forward{rep[i], imgfea}
-        end
+    else -- num_layers > 1
+      for i = 1,self.num_layers do
+        rep[1][i] = self.jointable1:forward{rep[1][i], rep_im[1][i]}
+        rep[2][i] = self.jointable1:forward{rep[2][i], rep_im[2][i]}
+      end
+    end
+  else -- structure is not bilstm
+    if self.num_layers == 1 then
+      for i = 1,self.num_layers do
+        rep = self.jointable1:forward{rep, rep_im}
+      end
+    else -- num_layers > 1
+      for i = 1,self.num_layers do
+        rep[i] = self.jointable1:forward{rep[i], rep_im[i]}
       end
     end
   end
@@ -388,8 +445,10 @@ function ConcatVQA:predict(ques, imgfea)
   local logprobs = self.vqa_module:forward(rep)
   local prediction = argmax(logprobs)
   self.lstm:forget()
-  if self.structure == 'bilstm' then
+  self.lstm_im:forget()
+  if self.structure == 'bilstm' or self.structure == 'bigru' then
     self.lstm_b:forget()
+    self.lstm_im_b:forget()
   end
   return prediction
 end
@@ -397,30 +456,11 @@ end
 -- Produce vqa predictions for each sentence in the dataset.
 function ConcatVQA:predict_dataset(dataset)
   local predictions = torch.Tensor(dataset.size)
-  if self.textonly then
-    for i = 1, dataset.size do
-      xlua.progress(i, dataset.size)
-      predictions[i] = self:predict(dataset.questions[i])
-    end
-  else
-    for i = 1, dataset.size do
-      xlua.progress(i, dataset.size)
-      predictions[i] = self:predict(dataset.questions[i], dataset.imagefeas[dataset.images[i]])
-    end
+  for i = 1, dataset.size do
+    xlua.progress(i, dataset.size)
+    predictions[i] = self:predict(dataset.questions[i], dataset.imagefeas[dataset.images[i]])
   end
   return predictions
-end
-
-function argmax(v)
-  local idx = 1
-  local max = v[1]
-  for i = 2, v:size(1) do
-    if v[i] > max then
-      max = v[i]
-      idx = i
-    end
-  end
-  return idx
 end
 
 function ConcatVQA:print_config()
@@ -438,11 +478,7 @@ function ConcatVQA:print_config()
   print(string.format('%-25s = %.2e', 'word vector learning rate', self.emb_learning_rate))
   print(string.format('%-25s = %s',   'dropout', tostring(self.dropout)))
   print(string.format('%-25s = %s',   'cuda', tostring(self.cuda)))
-  if self.textonly then
-    print(string.format('%-25s = %s',   'image feature dim', '[text only]'))
-  else
-    print(string.format('%-25s = %s',   'image feature dim', self.im_fea_dim))
-  end
+  print(string.format('%-25s = %s',   'image feature dim', self.im_fea_dim))
 end
 
 --
@@ -463,7 +499,6 @@ function ConcatVQA:save(path)
     structure         = self.structure,
     im_fea_dim        = self.im_fea_dim,
     num_classes       = self.num_classes,
-    textonly          = self.textonly
   }
 
   torch.save(path, {
@@ -475,7 +510,6 @@ end
 function ConcatVQA.load(path)
   local state = torch.load(path)
   --state.config.num_classes = 969--trick
-  --state.config.textonly = string.find(path, 'textonly') and true or false--trick
   local model = vqalstm.ConcatVQA.new(state.config)
   model.params:copy(state.params)
   return model
