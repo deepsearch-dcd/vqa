@@ -15,6 +15,7 @@ function ImageVQA:__init(config)
   self.cuda              = config.cuda              or false
   self.im_fea_dim        = config.im_fea_dim        or 1000
   assert(self.num_classes~=nil)
+  self.num_model         = config.num_model         or 4
 
   -- optimizer configuration
   self.optim_state = { learningRate = self.learning_rate }
@@ -23,24 +24,22 @@ function ImageVQA:__init(config)
   self.criterion = nn.ClassNLLCriterion()
 
   -- vqa classification module
-  self.vqa_module1 = self:new_vqa_module()
-  self.vqa_module2 = self:new_vqa_module()
-  self.vqa_module3 = self:new_vqa_module()
-  self.vqa_module4 = self:new_vqa_module()
+  self.vqa_module = {}
+  for i = 1,self.num_model do
+    self.vqa_module[i] = self:new_vqa_module()
+  end
 
   if self.cuda then
     self.criterion = self.criterion:cuda()
-    self.vqa_module1 = self.vqa_module1:cuda()
-    self.vqa_module2 = self.vqa_module2:cuda()
-    self.vqa_module3 = self.vqa_module3:cuda()
-    self.vqa_module4 = self.vqa_module4:cuda()
+    for i = 1,self.num_model do
+      self.vqa_module[i] = self.vqa_module[i]:cuda()
+    end
   end
 
   local modules = nn.Parallel()
-  modules:add(self.vqa_module1)
-  modules:add(self.vqa_module2)
-  modules:add(self.vqa_module3)
-  modules:add(self.vqa_module4)
+  for i = 1,self.num_model do
+    modules:add(self.vqa_module[i])
+  end
 
   if self.cuda then
     modules = modules:cuda()
@@ -70,10 +69,9 @@ function ImageVQA:new_vqa_module()
 end
 
 function ImageVQA:train(dataset)
-  self.vqa_module1:training()
-  self.vqa_module2:training()
-  self.vqa_module3:training()
-  self.vqa_module4:training()
+  for i = 1,self.num_model do
+    self.vqa_module[i]:training()
+  end
   
   local indices = torch.randperm(dataset.size)
   for i = 1, dataset.size, self.batch_size do
@@ -94,18 +92,7 @@ function ImageVQA:train(dataset)
         local imgfea = dataset.imagefeas[img]
 
         -- compute class log probabilities
-        local output
-        if typ == 0 then
-          output = self.vqa_module1:forward(imgfea) -- class log prob
-        elseif typ == 1 then
-          output = self.vqa_module2:forward(imgfea) -- class log prob
-        elseif typ == 2 then
-          output = self.vqa_module3:forward(imgfea) -- class log prob
-        elseif typ == 3 then
-          output = self.vqa_module4:forward(imgfea) -- class log prob
-        else
-          error("Error type in prediction: "..typ)
-        end
+        local output = self.vqa_module[typ+1]:forward(imgfea) -- class log prob
 
         -- compute loss and backpropagate
         local example_loss = self.criterion:forward(output, ans)
@@ -113,18 +100,7 @@ function ImageVQA:train(dataset)
 
         -------------------- BACKWARD --------------------
         local obj_grad = self.criterion:backward(output, ans)
-        local rep_grad
-        if typ == 0 then
-          rep_grad = self.vqa_module1:backward(imgfea, obj_grad)
-        elseif typ == 1 then
-          rep_grad = self.vqa_module2:backward(imgfea, obj_grad)
-        elseif typ == 2 then
-          rep_grad = self.vqa_module3:backward(imgfea, obj_grad)
-        elseif typ == 3 then
-          rep_grad = self.vqa_module4:backward(imgfea, obj_grad)
-        else
-          error("Error type in prediction: "..typ)
-        end
+        local rep_grad = self.vqa_module[typ+1]:backward(imgfea, obj_grad)
       end
 
       -- comment these, since batch_size is 1
@@ -145,22 +121,8 @@ end
 
 -- Predict the vqa of a sentence.
 function ImageVQA:predict(typ, imgfea)
-  local logprobs
-  if typ == 0 then
-    self.vqa_module1:evaluate()
-    logprobs = self.vqa_module1:forward(imgfea)
-  elseif typ == 1 then
-    self.vqa_module2:evaluate()
-    logprobs = self.vqa_module2:forward(imgfea)
-  elseif typ == 2 then
-    self.vqa_module3:evaluate()
-    logprobs = self.vqa_module3:forward(imgfea)
-  elseif typ == 3 then
-    self.vqa_module4:evaluate()
-    logprobs = self.vqa_module4:forward(imgfea)
-  else
-    error("Error type in prediction: "..typ)
-  end
+  self.vqa_module[typ+1]:evaluate()
+  local logprobs = self.vqa_module[typ+1]:forward(imgfea)
   local prediction = argmax(logprobs)
   return prediction
 end
