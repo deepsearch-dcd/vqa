@@ -84,6 +84,8 @@ local function process_raw(file_dir, filter_type)
     end
     assert(#answers == #types)
 
+    local all_images = images
+
     local n_images, n_questions, n_answers, n_types = {}, {}, {}, {}
     if filter_type ~= nil then
         for i, _type in ipairs(types) do
@@ -101,7 +103,7 @@ local function process_raw(file_dir, filter_type)
         n_types = types
     end
 
-    return n_images, n_questions, n_answers, n_types
+    return n_images, n_questions, n_answers, n_types, all_images
 end
 
 
@@ -211,11 +213,12 @@ function COCOQA.load_data(settings)
     -- tfidf: if given, compute tf-idf for each word in question.
     -- bow: if given, the question is represented as BoW form.
     -- filter_type: [object, number, color, location] return questions of specific type.
+    -- discard_unk_answer: if true, discard unknown answer in testset.
 
     -- load raw data
-    local train_images , train_questions, train_answers, train_types = 
+    local train_images , train_questions, train_answers, train_types,train_all_images = 
         process_raw(TRAIN_DIR, TYPE_TO_INDEX[settings.filter_type])
-    local test_images, test_questions, test_answers, test_types = 
+    local test_images, test_questions, test_answers, test_types, test_all_images = 
         process_raw(TEST_DIR, TYPE_TO_INDEX[settings.filter_type])
     local captions = {}
     if settings.load_caption == 'origin' then
@@ -233,7 +236,7 @@ function COCOQA.load_data(settings)
     -- extract vocabulary
     local vocab = {}
     vocab.image_to_index, vocab.index_to_image = 
-        util.extract_vocab(util.flatten({train_images, test_images}))
+        util.extract_vocab(util.flatten({train_all_images, test_all_images}))
     vocab.word_to_index, vocab.index_to_word = 
         util.extract_vocab(util.flatten({train_questions, captions}))
     vocab.answer_to_index, vocab.index_to_answer = 
@@ -241,6 +244,23 @@ function COCOQA.load_data(settings)
     vocab['type_to_index'], vocab['index_to_type'] = 
         TYPE_TO_INDEX, INDEX_TO_TYPE
 
+    if settings.discard_unk_answer then
+        local images, questions, answers, types = {}, {}, {}, {}
+        local answer2index = vocab.answer_to_index
+        for i, a in ipairs(test_answers) do
+            if answer2index[a] ~= nil then
+                table.insert(images, test_images[i])
+                table.insert(questions, test_questions[i])
+                table.insert(answers, test_answers[i])
+                table.insert(types, test_types[i])
+            end
+        end
+        test_images = images
+        test_questions = questions
+        test_answers = answers
+        test_types = types
+    end
+            
     if settings.top_word then
         -- build word_and_count table
         local word_and_count = {}
@@ -269,7 +289,7 @@ function COCOQA.load_data(settings)
         vocab.index_to_word = index_to_word
         vocab.word_to_index = word_to_index
     end
-    
+
     if settings.add_unk_word then
         table.insert(vocab.index_to_word, UNK_WORD)
         vocab.word_to_index[UNK_WORD] = #vocab.index_to_word
