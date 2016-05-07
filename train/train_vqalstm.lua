@@ -112,12 +112,24 @@ for i = 1, num_epochs do
   local train_predictions = model:predict_dataset(trainset)
   local train_score = accuracy(train_predictions, trainset.answers)
   print('-- train score: '.. train_score ..', cost '.. string.format("%.2fs", (sys.clock() - start)))
+  local typs = torch.Tensor(trainset.types)
+  local train_score_typ1 = accPerType(train_predictions, trainset.answers, typs:eq(0))
+  local train_score_typ2 = accPerType(train_predictions, trainset.answers, typs:eq(1))
+  local train_score_typ3 = accPerType(train_predictions, trainset.answers, typs:eq(2))
+  local train_score_typ4 = accPerType(train_predictions, trainset.answers, typs:eq(3))
+  print('---- train score per type: '.. train_score_typ1 ..', '.. train_score_typ2 ..', '.. train_score_typ3 ..', '.. train_score_typ4)
   --]]
 
   start = sys.clock()
   local dev_predictions = model:predict_dataset(testset)
   local dev_score = accuracy(dev_predictions, testset.answers)
   print('-- test score: '.. dev_score ..', cost '.. string.format("%.2fs", (sys.clock() - start)))
+  typs = torch.Tensor(testset.types)
+  local dev_score_typ1 = accPerType(dev_predictions, testset.answers, typs:eq(0))
+  local dev_score_typ2 = accPerType(dev_predictions, testset.answers, typs:eq(1))
+  local dev_score_typ3 = accPerType(dev_predictions, testset.answers, typs:eq(2))
+  local dev_score_typ4 = accPerType(dev_predictions, testset.answers, typs:eq(3))
+  print('---- test score per type: '.. dev_score_typ1 ..', '.. dev_score_typ2 ..', '.. dev_score_typ3 ..', '.. dev_score_typ4)
 
   if dev_score > best_dev_score then
     best_dev_score = dev_score
