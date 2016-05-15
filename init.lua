@@ -67,3 +67,9 @@ header('init function being called ...')
 function accuracy(pred, gold) -- both are torch.Tensor
   return torch.eq(pred, gold):sum() / pred:size(1)
 end
+
+function accPerType(pred, gold, typIdx) -- all are torch.Tensor -- typIdx=typs:eq(typ)
+  local acc = torch.eq(pred, gold):double()
+  typIdx = typIdx:double()
+  return acc:dot(typIdx) / typIdx:sum()
+end

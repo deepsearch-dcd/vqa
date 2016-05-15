@@ -99,6 +99,7 @@ local train_start = sys.clock()
 local best_dev_score = -1.0
 local best_dev_model = model
 local best_dev_epoch = 1
+local best_dev_predictions
 header('Training model')
 for i = 1, num_epochs do
   local start = sys.clock()
@@ -112,12 +113,24 @@ for i = 1, num_epochs do
   local train_predictions = model:predict_dataset(trainset)
   local train_score = accuracy(train_predictions, trainset.answers)
   print('-- train score: '.. train_score ..', cost '.. string.format("%.2fs", (sys.clock() - start)))
+  local typs = torch.Tensor(trainset.types)
+  local train_score_typ1 = accPerType(train_predictions, trainset.answers, typs:eq(0))
+  local train_score_typ2 = accPerType(train_predictions, trainset.answers, typs:eq(1))
+  local train_score_typ3 = accPerType(train_predictions, trainset.answers, typs:eq(2))
+  local train_score_typ4 = accPerType(train_predictions, trainset.answers, typs:eq(3))
+  print('---- train score per type: '.. train_score_typ1 ..', '.. train_score_typ2 ..', '.. train_score_typ3 ..', '.. train_score_typ4)
   --]]
 
   start = sys.clock()
   local dev_predictions = model:predict_dataset(testset)
   local dev_score = accuracy(dev_predictions, testset.answers)
   print('-- test score: '.. dev_score ..', cost '.. string.format("%.2fs", (sys.clock() - start)))
+  typs = torch.Tensor(testset.types)
+  local dev_score_typ1 = accPerType(dev_predictions, testset.answers, typs:eq(0))
+  local dev_score_typ2 = accPerType(dev_predictions, testset.answers, typs:eq(1))
+  local dev_score_typ3 = accPerType(dev_predictions, testset.answers, typs:eq(2))
+  local dev_score_typ4 = accPerType(dev_predictions, testset.answers, typs:eq(3))
+  print('---- test score per type: '.. dev_score_typ1 ..', '.. dev_score_typ2 ..', '.. dev_score_typ3 ..', '.. dev_score_typ4)
 
   if dev_score > best_dev_score then
     best_dev_score = dev_score
@@ -137,6 +150,7 @@ for i = 1, num_epochs do
       best_dev_model.emb.weight:copy(model.emb.weight)
     end
     best_dev_epoch = i
+    best_dev_predictions = dev_predictions
   end
 end
 print('finished training in '.. string.format("%.2fs", (sys.clock() - train_start)))
@@ -161,6 +175,17 @@ end
 -- write model to disk
 print('writing model to ' .. model_save_path)
 best_dev_model:save(model_save_path)
+
+local pred_save_path = string.format("%s.txt", model_save_path)
+print('writing predictions to ' .. pred_save_path)
+local out = assert(io.open(pred_save_path, "w"))
+local splitter = " "
+local num_pred = best_dev_predictions:size(1)
+for i = 1, num_pred do
+  out:write(best_dev_predictions[i])
+  out:write(splitter)
+end
+out:close()
 
 -- to load a saved model
 --local loaded_model = model_class.load(model_save_path)
