@@ -1,0 +1,169 @@
+[program started on Sat May 14 05:14:32 2016] 
+[command line arguments] 
+rmdeter true 
+model gru 
+im_fea GoogLeNet-1024.npy 
+epochs 20 
+dataset COCOQA 
+cuda true 
+capopt origin 
+caponly false 
+modelclass LSTMVQA 
+dim 150 
+imageonly false 
+textonly true 
+layers 1 
+im_fea_dim 1024 
+caption true 
+[----------------------] 
+-------------------------------------------------------------------------------- 
+LSTM for VQA with text only 
+-------------------------------------------------------------------------------- 
+loading COCOQA datasets 
+Append captions with question done. 
+Remove determiner done. 
+num train = 78736 
+num test  = 38948 
+-------------------------------------------------------------------------------- 
+model configuration 
+-------------------------------------------------------------------------------- 
+max epochs                = 20 
+num params                = 155830 
+num compositional params  = 90900 
+LSTM memory dim           = 150 
+LSTM structure            = gru 
+LSTM layers               = 1 
+regularization strength   = 1.00e-04 
+minibatch size            = 1 
+learning rate             = 5.00e-02 
+word vector learning rate = 1.00e-01 
+dropout                   = true 
+cuda                      = true 
+word vector dim           = 50 
+-------------------------------------------------------------------------------- 
+Training model 
+-------------------------------------------------------------------------------- 
+-- epoch 1 
+-- finished epoch in 1276.20s 
+-- train score: 0.51282767730136, cost 890.27s 
+---- train score per type: 0.56908277567646, 0.42718776550552, 0.36649054292059, 0.37145833333333 
+-- test score: 0.50151484029989, cost 438.46s 
+---- test score per type: 0.55892082628832, 0.41960072595281, 0.34828698724843, 0.36481033091203 
+-- epoch 2 
+-- finished epoch in 1271.88s 
+-- train score: 0.60852723023776, cost 888.57s 
+---- train score per type: 0.64152967704393, 0.60934579439252, 0.50294815835822, 0.51666666666667 
+-- test score: 0.58477970627503, cost 441.98s 
+---- test score per type: 0.61942218628244, 0.59745916515427, 0.4715009986173, 0.48789346246973 
+-- epoch 3 
+-- finished epoch in 1274.55s 
+-- train score: 0.64779770371876, cost 889.09s 
+---- train score per type: 0.67802589467559, 0.6661002548853, 0.54866375679608, 0.54875 
+-- test score: 0.60942795522235, cost 440.28s 
+---- test score per type: 0.64287289568478, 0.64174228675136, 0.49761868182517, 0.5 
+-- epoch 4 
+-- finished epoch in 1275.87s 
+-- train score: 0.67562487299329, cost 896.22s 
+---- train score per type: 0.70542988070992, 0.67663551401869, 0.58212726855042, 0.58729166666667 
+-- test score: 0.62575742014994, cost 449.24s 
+---- test score per type: 0.65816364037345, 0.64355716878403, 0.5195882624059, 0.52905569007264 
+-- epoch 5 
+-- finished epoch in 1284.01s 
+-- train score: 0.69749542775859, cost 888.91s 
+---- train score per type: 0.72834230433518, 0.69923534409516, 0.59989279424152, 0.6075 
+-- test score: 0.63381945157646, cost 460.43s 
+---- test score per type: 0.66595603910902, 0.6508166969147, 0.53111076970349, 0.5318805488297 
+-- epoch 6 
+-- finished epoch in 1278.10s 
+-- train score: 0.71274893314367, cost 890.57s 
+---- train score per type: 0.7431990107652, 0.70994052676296, 0.61758174439084, 0.62625 
+-- test score: 0.64013556536921, cost 472.17s 
+---- test score per type: 0.67183709475851, 0.6551724137931, 0.53679520663696, 0.54681194511703 
+-- epoch 7 
+-- finished epoch in 1267.36s 
+-- train score: 0.72961542369437, cost 887.52s 
+---- train score per type: 0.75765565900495, 0.73610875106202, 0.63772111187687, 0.65041666666667 
+-- test score: 0.64283146759782, cost 515.95s 
+---- test score per type: 0.67286627949717, 0.66061705989111, 0.54570594561377, 0.54842615012107 
+-- epoch 8 
+-- finished epoch in 1229.53s 
+-- train score: 0.74462761633814, cost 907.87s 
+---- train score per type: 0.77233052080303, 0.75208156329652, 0.65395512673252, 0.66479166666667 
+-- test score: 0.64765841635001, cost 556.01s 
+---- test score per type: 0.67679923546277, 0.66061705989111, 0.55261944999232, 0.56295399515738 
+-- epoch 9 
+-- finished epoch in 1139.57s 
+-- train score: 0.7569091648039, cost 953.52s 
+---- train score per type: 0.78378673261565, 0.76839422259983, 0.66842790412742, 0.675625 
+-- test score: 0.64765841635001, cost 535.45s 
+---- test score per type: 0.68018084246122, 0.6508166969147, 0.54555231218313, 0.55528652138822 
+-- epoch 10 
+-- finished epoch in 1036.65s 
+-- train score: 0.76774283682178, cost 955.94s 
+---- train score per type: 0.79269711958103, 0.79048428207307, 0.68052683972739, 0.69125 
+-- test score: 0.6499435144295, cost 541.42s 
+---- test score per type: 0.68054840843931, 0.66569872958258, 0.54877861422646, 0.56214689265537 
+-- epoch 11 
+-- finished epoch in 1130.47s 
+-- train score: 0.77916073968706, cost 1056.74s 
+---- train score per type: 0.80355324410823, 0.79932030586236, 0.69285550195268, 0.70979166666667 
+-- test score: 0.65281914347335, cost 457.71s 
+---- test score per type: 0.68378298904653, 0.67223230490018, 0.55231218313105, 0.55528652138822 
+-- epoch 12 
+-- finished epoch in 1147.51s 
+-- train score: 0.78996901036375, cost 1044.23s 
+---- train score per type: 0.81440936863544, 0.80441801189465, 0.7072517038058, 0.71729166666667 
+-- test score: 0.65330697340043, cost 437.87s 
+---- test score per type: 0.68462839079615, 0.66823956442831, 0.55016131510217, 0.5637610976594 
+-- epoch 13 
+-- finished epoch in 1172.08s 
+-- train score: 0.79845305832148, cost 1016.47s 
+---- train score per type: 0.82146494035496, 0.81716227697536, 0.71774255302856, 0.73145833333333 
+-- test score: 0.65258806613947, cost 441.02s 
+---- test score per type: 0.68396677203558, 0.66642468239564, 0.54647411276694, 0.57142857142857 
+-- epoch 14 
+-- finished epoch in 1250.99s 
+-- train score: 0.80772454785613, cost 964.46s 
+---- train score per type: 0.83001163805644, 0.83449447748513, 0.72662531587411, 0.74020833333333 
+-- test score: 0.65163808154462, cost 439.05s 
+---- test score per type: 0.68154083658017, 0.67477313974592, 0.54862498079582, 0.5682001614205 
+-- epoch 15 
+-- finished epoch in 1271.02s 
+-- train score: 0.81511633814265, cost 918.86s 
+---- train score per type: 0.83588521966832, 0.8428207306712, 0.73864767593231, 0.75125 
+-- test score: 0.6508421485057, cost 438.95s 
+---- test score per type: 0.68227596853635, 0.67150635208711, 0.54478414502996, 0.56133979015335 
+-- epoch 16 
+-- finished epoch in 1246.78s 
+-- train score: 0.82602621418411, cost 906.35s 
+---- train score per type: 0.84506837358161, 0.85641461342396, 0.75135921586645, 0.77375 
+-- test score: 0.65140700421074, cost 439.52s 
+---- test score per type: 0.68223921193854, 0.66642468239564, 0.54816408050392, 0.56739305891848 
+-- epoch 17 
+-- finished epoch in 1293.08s 
+-- train score: 0.83359581385897, cost 899.57s 
+---- train score per type: 0.8519057317428, 0.86406117247239, 0.76567884217781, 0.77125 
+-- test score: 0.6505853959125, cost 438.81s 
+---- test score per type: 0.67959273689627, 0.67441016333938, 0.5503149485328, 0.56900726392252 
+-- epoch 18 
+-- finished epoch in 1296.39s 
+-- train score: 0.84223226986385, cost 890.54s 
+---- train score per type: 0.8597068664533, 0.8749362786746, 0.773336396355, 0.789375 
+-- test score: 0.64955838553969, cost 453.66s 
+---- test score per type: 0.6804748952437, 0.66751361161525, 0.5458595790444, 0.56255044390638 
+-- epoch 19 
+-- finished epoch in 1268.91s 
+-- train score: 0.84856990449096, cost 890.05s 
+---- train score per type: 0.86545315682281, 0.8749362786746, 0.7834443678689, 0.8 
+-- test score: 0.64783814316525, cost 409.02s 
+---- test score per type: 0.67815922958171, 0.66388384754991, 0.54509141189123, 0.56698950766747 
+-- epoch 20 
+-- finished epoch in 1017.34s 
+-- train score: 0.85111003861004, cost 696.47s 
+---- train score per type: 0.86890820482979, 0.86372132540357, 0.78581820966383, 0.809375 
+-- test score: 0.64850569990757, cost 344.32s 
+---- test score per type: 0.67790193339704, 0.67041742286751, 0.54739591335075, 0.56698950766747 
+finished training in 51913.40s 
+best dev score is: 0.65330697340043 
+writing model to ./done/vqalstm-COCOQA-gru_textonly.l1.d150.e12.c1-2016-05-14T193952.t7 
+writing predictions to ./done/vqalstm-COCOQA-gru_textonly.l1.d150.e12.c1-2016-05-14T193952.t7.txt 

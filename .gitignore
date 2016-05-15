@@ -9,6 +9,7 @@ omit/
 *.t7
 *.xlsx
 train/log/README.md
+train/log/
 
 # copy file from https://github.com/github/gitignore/blob/master/Lua.gitignore
 

@@ -99,6 +99,7 @@ local train_start = sys.clock()
 local best_dev_score = -1.0
 local best_dev_model = model
 local best_dev_epoch = 1
+local best_dev_predictions
 header('Training model')
 for i = 1, num_epochs do
   local start = sys.clock()
@@ -149,6 +150,7 @@ for i = 1, num_epochs do
       best_dev_model.emb.weight:copy(model.emb.weight)
     end
     best_dev_epoch = i
+    best_dev_predictions = dev_predictions
   end
 end
 print('finished training in '.. string.format("%.2fs", (sys.clock() - train_start)))
@@ -173,6 +175,17 @@ end
 -- write model to disk
 print('writing model to ' .. model_save_path)
 best_dev_model:save(model_save_path)
+
+local pred_save_path = string.format("%s.txt", model_save_path)
+print('writing predictions to ' .. pred_save_path)
+local out = assert(io.open(pred_save_path, "w"))
+local splitter = " "
+local num_pred = best_dev_predictions:size(1)
+for i = 1, num_pred do
+  out:write(best_dev_predictions[i])
+  out:write(splitter)
+end
+out:close()
 
 -- to load a saved model
 --local loaded_model = model_class.load(model_save_path)
