@@ -85,11 +85,13 @@ local function process_raw(file_dir, filter_type)
     assert(#answers == #types)
 
     local all_images = images
+    local filter_index = {}
 
     local n_images, n_questions, n_answers, n_types = {}, {}, {}, {}
     if filter_type ~= nil then
         for i, _type in ipairs(types) do
             if _type == filter_type then
+                table.insert(filter_index, i)
                 table.insert(n_images, images[i])
                 table.insert(n_questions, questions[i])
                 table.insert(n_answers, answers[i])
@@ -103,7 +105,7 @@ local function process_raw(file_dir, filter_type)
         n_types = types
     end
 
-    return n_images, n_questions, n_answers, n_types, all_images
+    return n_images, n_questions, n_answers, n_types, all_images, filter_index
 end
 
 
@@ -216,10 +218,12 @@ function COCOQA.load_data(settings)
     -- discard_unk_answer: if true, discard unknown answer in testset.
 
     -- load raw data
-    local train_images , train_questions, train_answers, train_types,train_all_images = 
-        process_raw(TRAIN_DIR, TYPE_TO_INDEX[settings.filter_type])
-    local test_images, test_questions, test_answers, test_types, test_all_images = 
-        process_raw(TEST_DIR, TYPE_TO_INDEX[settings.filter_type])
+    local train_images , train_questions, train_answers, 
+          train_types, train_all_images, train_filter_index = 
+            process_raw(TRAIN_DIR, TYPE_TO_INDEX[settings.filter_type])
+    local test_images, test_questions, test_answers, 
+          test_types, test_all_images, test_filter_index = 
+            process_raw(TEST_DIR, TYPE_TO_INDEX[settings.filter_type])
     local captions = {}
     if settings.load_caption == 'origin' then
         captions = process_caption(ORIGIN_CAPTIONS_FILE)
@@ -235,6 +239,10 @@ function COCOQA.load_data(settings)
 
     -- extract vocabulary
     local vocab = {}
+    if settings.filter_type ~= nil then
+        vocab.train_filter_index = train_filter_index
+        vocab.test_filter_index = test_filter_index
+    end
     vocab.image_to_index, vocab.index_to_image = 
         util.extract_vocab(util.flatten({train_all_images, test_all_images}))
     vocab.word_to_index, vocab.index_to_word = 
