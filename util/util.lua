@@ -84,6 +84,13 @@ function util.start_with(str, head)
 	else return false end
 end
 
+function util.read_lines(fname)
+    local f = assert(io.open(fname, 'r'))
+    local file_content = f:read('*all')
+    f:close()
+    return util.split_line(file_content)
+end
+
 -- Compute accuracy and loss of the [net] across the [dataset]
 function util.eval(net, criterion, dataset)
 	local correct = 0

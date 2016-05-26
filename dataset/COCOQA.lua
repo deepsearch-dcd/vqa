@@ -51,20 +51,13 @@ local DETERMINER = {
 -- Read from file and save in table.
 --]]
 local function process_raw(file_dir, filter_type)
-    local function read_file(fname)
-        local f = assert(io.open(fname, 'r'))
-        local file_content = f:read('*all')
-        f:close()
-        return util.split_line(file_content)
-    end
-
     -- process images
     local fname = paths.concat(file_dir, IMAGES_FILE_NAME)
-    local images = read_file(fname)
+    local images = util.read_lines(fname)
 
     -- process questions
     fname = paths.concat(file_dir, QUESTIONS_FILE_NAME)
-    local lines = read_file(fname)
+    local lines = util.read_lines(fname)
     local questions = {}
     for _,l in ipairs(lines) do
         table.insert(questions, util.split_word(l))
@@ -73,12 +66,12 @@ local function process_raw(file_dir, filter_type)
 
     -- process answers
     fname = paths.concat(file_dir, ANSWERS_FILE_NAME)
-    local answers = read_file(fname)
+    local answers = util.read_lines(fname)
     assert(#questions == #answers) 
 
     -- process types
     fname = paths.concat(file_dir, TYPES_FILE_NAME)
-    local types = read_file(fname)
+    local types = util.read_lines(fname)
     for i, _type in ipairs(types) do
         types[i] = tonumber(_type)+1
     end
