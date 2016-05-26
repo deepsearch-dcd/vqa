@@ -8,6 +8,8 @@ omit/
 *.swp
 *.t7
 train/log/README.md
+show/
+exp/
 
 # copy file from https://github.com/github/gitignore/blob/master/Lua.gitignore
 
