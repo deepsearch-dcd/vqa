@@ -7,11 +7,13 @@ omit/
 *.pyc
 *.swp
 *.t7
+*.xlsx
 train/log/README.md
 show/
 exp/
 model/
 train/train_COCO*
+train/log/
 
 # copy file from https://github.com/github/gitignore/blob/master/Lua.gitignore
 

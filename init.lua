@@ -15,11 +15,13 @@ require 'util/DataLoad'
 vqalstm = {}
 
 include('module/fLSTM.lua')
+include('module/fGRU.lua')
 include('module/fRNN.lua')
 include('module/fRNNSU.lua')
 include('module/fBOW.lua')
 include('model/LSTMVQA.lua')
 include('model/ConcatVQA.lua')
+include('model/ImageVQA.lua')
 
 -- global paths (modify if desired)
 --vqalstm.data_dir        = 'data'
@@ -41,6 +43,18 @@ function share_params(cell, src)
   end
 end
 
+function argmax(v)
+  local idx = 1
+  local max = v[1]
+  for i = 2, v:size(1) do
+    if v[i] > max then
+      max = v[i]
+      idx = i
+    end
+  end
+  return idx
+end
+
 function header(s)
   print(string.rep('-', 80))
   print(s)
@@ -52,4 +66,10 @@ header('init function being called ...')
 -- some useful functions
 function accuracy(pred, gold) -- both are torch.Tensor
   return torch.eq(pred, gold):sum() / pred:size(1)
+end
+
+function accPerType(pred, gold, typIdx) -- all are torch.Tensor -- typIdx=typs:eq(typ)
+  local acc = torch.eq(pred, gold):double()
+  typIdx = typIdx:double()
+  return acc:dot(typIdx) / typIdx:sum()
 end
