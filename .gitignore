@@ -10,6 +10,8 @@ omit/
 train/log/README.md
 show/
 exp/
+model/
+train/train_COCO*
 
 # copy file from https://github.com/github/gitignore/blob/master/Lua.gitignore
 
